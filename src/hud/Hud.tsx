@@ -9,6 +9,7 @@ interface HudProps {
   readonly sensorStatus: SensorControlStatus;
   readonly cadenceSpm: number;
   readonly forwardSpeed: number;
+  readonly isSensorCalibrated: boolean;
   readonly onEnableSensors: () => void;
   readonly onRecalibrateSensors: () => void;
 }
@@ -28,6 +29,7 @@ export const Hud = ({
   sensorStatus,
   cadenceSpm,
   forwardSpeed,
+  isSensorCalibrated,
   onEnableSensors,
   onRecalibrateSensors,
 }: HudProps): JSX.Element => {
@@ -55,9 +57,20 @@ export const Hud = ({
             步频 {Math.round(cadenceSpm)} spm · 速度 {forwardSpeed.toFixed(1)} m/s
           </p>
           {sensorStatus === 'active' ? (
-            <button className="hud__button hud__button--compact" type="button" onClick={onRecalibrateSensors}>
-              重新校准方向
-            </button>
+            <>
+              <p className="hud__sensor-status">
+                {isSensorCalibrated
+                  ? '已校准。转动手机同步方向，原地踏步前进。'
+                  : '面向迷宫前方，点击开始运动校准。'}
+              </p>
+              <button
+                className="hud__button hud__button--compact"
+                type="button"
+                onClick={onRecalibrateSensors}
+              >
+                {isSensorCalibrated ? '重新校准方向' : '开始运动校准'}
+              </button>
+            </>
           ) : (
             <>
               <p className="hud__sensor-status">{readSensorStatus(sensorStatus)}</p>
@@ -111,5 +124,5 @@ const readSensorStatus = (status: SensorControlStatus): string => {
     return '正在请求运动与方向权限。';
   }
 
-  return '转动手机同步方向，原地踏步前进。';
+  return '面向迷宫前方，启用体感后先做运动校准。';
 };

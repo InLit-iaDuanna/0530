@@ -65,6 +65,7 @@ export const App = (): JSX.Element => {
   const [resetSignal, setResetSignal] = useState(0);
   const [pointerLocked, setPointerLocked] = useState(false);
   const [sensorStatus, setSensorStatus] = useState<SensorControlStatus>('idle');
+  const [sensorCalibrated, setSensorCalibrated] = useState(false);
   const [sensorHud, setSensorHud] = useState({ cadenceSpm: 0, forwardSpeed: 0 });
   const isCoarsePointer = useCoarsePointer();
   const useSensorMode = isCoarsePointer;
@@ -82,6 +83,7 @@ export const App = (): JSX.Element => {
   const restart = useCallback(() => {
     resetTouchInput();
     resetSensorRuntime();
+    setSensorCalibrated(false);
     if (!useSensorMode) {
       resetSensorInput();
     }
@@ -95,12 +97,14 @@ export const App = (): JSX.Element => {
     setSensorStatus(nextStatus);
 
     if (nextStatus === 'active') {
-      resetSensorCalibration();
+      setSensorCalibrated(false);
     }
   }, []);
 
   const recalibrateSensors = useCallback(() => {
     resetSensorCalibration();
+    resetSensorRuntime();
+    setSensorCalibrated(true);
   }, []);
 
   useEffect(() => {
@@ -161,7 +165,7 @@ export const App = (): JSX.Element => {
                 layout={mazeLayout}
                 resetSignal={resetSignal}
                 useTouchLook={isCoarsePointer && !useSensorMode}
-                useSensorControl={useSensorMode && sensorStatus === 'active'}
+                useSensorControl={useSensorMode && sensorStatus === 'active' && sensorCalibrated}
                 enabled={gameState.kind === 'playing'}
               />
             </Physics>
@@ -174,6 +178,7 @@ export const App = (): JSX.Element => {
           sensorStatus={sensorStatus}
           cadenceSpm={sensorHud.cadenceSpm}
           forwardSpeed={sensorHud.forwardSpeed}
+          isSensorCalibrated={sensorCalibrated}
           onEnableSensors={enableSensors}
           onRecalibrateSensors={recalibrateSensors}
         />

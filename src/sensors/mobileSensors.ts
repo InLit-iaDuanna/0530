@@ -43,6 +43,7 @@ export const refreshSensorControls = (): void => {
 
 export const resetSensorCalibration = (): void => {
   yawOffset = rawYaw;
+  yaw = BASE_YAW;
   publish(performance.now());
 };
 
@@ -115,7 +116,7 @@ const handleOrientation = (event: DeviceOrientationEvent): void => {
   }
 
   rawYaw = (yawDeg * Math.PI) / 180;
-  const nextYaw = BASE_YAW + angleDelta(rawYaw, yawOffset);
+  const nextYaw = BASE_YAW - angleDelta(rawYaw, yawOffset);
   const pitchDeg = typeof event.beta === 'number' ? event.beta : 0;
   yaw += angleDelta(nextYaw, yaw) * 0.24;
   pitch += (MathUtils.clamp((pitchDeg * Math.PI) / 180, -0.4, 0.4) - pitch) * 0.16;
