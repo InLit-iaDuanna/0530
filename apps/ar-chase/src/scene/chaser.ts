@@ -52,6 +52,24 @@ export class Chaser {
     });
     this.group.add(outline);
 
+    const beaconMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff4f5f,
+      transparent: true,
+      opacity: 0.38,
+      depthWrite: false,
+    });
+    const beacon = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.18, 2.6, 16), beaconMaterial);
+    beacon.position.y = 3.05;
+    this.group.add(beacon);
+
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.42, 0.035, 8, 32),
+      new THREE.MeshBasicMaterial({ color: 0xff4f5f }),
+    );
+    ring.position.y = 4.4;
+    ring.rotation.x = Math.PI / 2;
+    this.group.add(ring);
+
     this.shadow = new THREE.Mesh(
       new THREE.CircleGeometry(0.62, 24),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.32 }),
@@ -62,13 +80,8 @@ export class Chaser {
   }
 
   update(snapshot: ChaseSnapshot, yaw: number, elapsed: number): void {
-    const angle = yaw + snapshot.azimuth;
-    this.group.position.set(
-      Math.sin(angle) * snapshot.distance,
-      -1.1,
-      -Math.cos(angle) * snapshot.distance,
-    );
-    this.group.lookAt(0, -0.7, 0);
+    this.group.position.set(snapshot.chaser.x, 0, snapshot.chaser.z);
+    this.group.lookAt(snapshot.player.x, 0.4, snapshot.player.z);
 
     const cycle = elapsed * 8 + snapshot.speed;
     const swing = Math.sin(cycle) * 0.48;
@@ -77,8 +90,7 @@ export class Chaser {
     this.leftArm.rotation.x = -swing * 0.8;
     this.rightArm.rotation.x = swing * 0.8;
 
-    const scale = THREE.MathUtils.clamp(1.15 - snapshot.distance / 34, 0.72, 1.08);
-    this.group.scale.setScalar(scale);
+    this.group.scale.setScalar(1);
     this.shadow.scale.setScalar(THREE.MathUtils.clamp(2 / snapshot.distance, 0.45, 1.1));
   }
 }

@@ -61,6 +61,49 @@ button {
   opacity: 1;
 }
 
+.tracker {
+  --tracker-angle: 0rad;
+  --tracker-danger: 0;
+  position: absolute;
+  top: calc(max(16px, env(safe-area-inset-top)) + 52px);
+  right: 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 118px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(4, 7, 12, 0.62);
+  color: #f4f7fb;
+  font-size: 13px;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(14px);
+  transition: opacity 160ms ease;
+}
+
+.tracker-arrow {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: #ff4f5f;
+  color: #f4f7fb;
+  box-shadow: 0 0 calc(8px + var(--tracker-danger) * 16px) rgba(255, 79, 95, 0.55);
+  transform: rotate(var(--tracker-angle));
+  transform-origin: center;
+}
+
+.tracker-label {
+  white-space: nowrap;
+}
+
+.show-tracker .tracker {
+  opacity: 1;
+}
+
 .score,
 .distance {
   min-width: 72px;

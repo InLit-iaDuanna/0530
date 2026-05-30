@@ -4,12 +4,12 @@ export class ForwardInput {
 
   constructor(private readonly button: HTMLButtonElement) {
     this.button.addEventListener('pointerdown', this.handlePointerDown);
-    this.button.addEventListener('pointerup', this.clearHeld);
-    this.button.addEventListener('pointercancel', this.clearHeld);
-    this.button.addEventListener('lostpointercapture', this.clearHeld);
+    this.button.addEventListener('pointerup', this.clearPointerHeld);
+    this.button.addEventListener('pointercancel', this.clearPointerHeld);
+    this.button.addEventListener('lostpointercapture', this.clearPointerHeld);
     window.addEventListener('keydown', this.handleKeyDown);
     window.addEventListener('keyup', this.handleKeyUp);
-    window.addEventListener('blur', this.clearHeld);
+    window.addEventListener('blur', this.clearAllHeld);
   }
 
   snapshot(): { held: boolean; keyboard: boolean } {
@@ -18,12 +18,12 @@ export class ForwardInput {
 
   destroy(): void {
     this.button.removeEventListener('pointerdown', this.handlePointerDown);
-    this.button.removeEventListener('pointerup', this.clearHeld);
-    this.button.removeEventListener('pointercancel', this.clearHeld);
-    this.button.removeEventListener('lostpointercapture', this.clearHeld);
+    this.button.removeEventListener('pointerup', this.clearPointerHeld);
+    this.button.removeEventListener('pointercancel', this.clearPointerHeld);
+    this.button.removeEventListener('lostpointercapture', this.clearPointerHeld);
     window.removeEventListener('keydown', this.handleKeyDown);
     window.removeEventListener('keyup', this.handleKeyUp);
-    window.removeEventListener('blur', this.clearHeld);
+    window.removeEventListener('blur', this.clearAllHeld);
   }
 
   private readonly handlePointerDown = (event: PointerEvent): void => {
@@ -44,7 +44,11 @@ export class ForwardInput {
     }
   };
 
-  private readonly clearHeld = (): void => {
+  private readonly clearPointerHeld = (): void => {
+    this.held = false;
+  };
+
+  private readonly clearAllHeld = (): void => {
     this.held = false;
     this.keyboardHeld = false;
   };

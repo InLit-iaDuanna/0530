@@ -85,7 +85,12 @@ export class JoystickInput {
   };
 
   private readonly handleLookDown = (event: PointerEvent): void => {
-    if (event.target === this.pad || this.pad.contains(event.target as Node)) {
+    const target = event.target;
+    if (
+      target === this.pad ||
+      this.pad.contains(target as Node) ||
+      (target instanceof HTMLElement && target.closest('button'))
+    ) {
       return;
     }
 

@@ -1,5 +1,10 @@
 import { clamp } from '../lib/lowpass';
 
+export interface Vec2 {
+  x: number;
+  z: number;
+}
+
 export interface ChaseConfig {
   INITIAL_DISTANCE: number;
   CATCH_RADIUS: number;
@@ -7,13 +12,16 @@ export interface ChaseConfig {
   CHASE_SPEED_RAMP: number;
   LOOK_AT_PENALTY_MUL: number;
   PLAYER_STEP_GAIN: number;
-  JOYSTICK_FORWARD_SPEED: number;
+  PLAYER_FORWARD_SPEED: number;
   MAX_CHASE_SPEED: number;
+  ROOM_HALF_SIZE: number;
 }
 
 export interface ChaseSnapshot {
   distance: number;
-  azimuth: number;
+  player: Vec2;
+  chaser: Vec2;
+  chaserBearing: number;
   speed: number;
   caught: boolean;
   danger: number;
@@ -28,31 +36,33 @@ export interface ChaseInput {
 }
 
 export const DEFAULT_CHASE_CONFIG: ChaseConfig = {
-  INITIAL_DISTANCE: 12,
+  INITIAL_DISTANCE: 14,
   CATCH_RADIUS: 1.2,
   BASE_CHASE_SPEED: 1.4,
   CHASE_SPEED_RAMP: 0.05,
   LOOK_AT_PENALTY_MUL: 1.3,
   PLAYER_STEP_GAIN: 0.6,
-  JOYSTICK_FORWARD_SPEED: 2,
+  PLAYER_FORWARD_SPEED: 4.2,
   MAX_CHASE_SPEED: 4.4,
+  ROOM_HALF_SIZE: 34,
 };
 
 export class ChaseAI {
-  private distance: number;
-  private azimuth = Math.PI;
+  private player: Vec2 = { x: 0, z: 0 };
+  private chaser: Vec2 = { x: 0, z: DEFAULT_CHASE_CONFIG.INITIAL_DISTANCE };
 
   constructor(private readonly config: ChaseConfig = DEFAULT_CHASE_CONFIG) {
-    this.distance = config.INITIAL_DISTANCE;
+    this.reset();
   }
 
   reset(): ChaseSnapshot {
-    this.distance = this.config.INITIAL_DISTANCE;
-    this.azimuth = Math.PI;
+    this.player = { x: 0, z: 0 };
+    this.chaser = { x: 0, z: this.config.INITIAL_DISTANCE };
     return this.snapshot(0);
   }
 
   update(input: ChaseInput): ChaseSnapshot {
+    this.movePlayer(input);
     const lookPenalty = this.isLookingAtChaser(input.playerYaw)
       ? this.config.LOOK_AT_PENALTY_MUL
       : 1;
@@ -62,46 +72,59 @@ export class ChaseAI {
       this.config.MAX_CHASE_SPEED,
     );
 
-    const stepEscape = input.stepCount * this.config.PLAYER_STEP_GAIN;
-    const forwardEscape =
-      Math.max(0, input.forwardAxis) *
-      this.config.JOYSTICK_FORWARD_SPEED *
-      input.dt *
-      this.forwardEscapeDirection(input.playerYaw);
-
-    this.distance += stepEscape + forwardEscape - speed * input.dt;
-    this.distance = Math.max(0, this.distance);
-
-    const turnDrift = Math.sin(input.playerYaw - this.azimuth) * 0.35 * input.dt;
-    this.azimuth += turnDrift;
+    this.moveChaser(speed, input.dt);
 
     return this.snapshot(speed);
   }
 
   private isLookingAtChaser(playerYaw: number): boolean {
-    const chaserDirection = this.azimuth;
+    const chaserDirection = this.bearingToChaser();
     const angle = Math.abs(Math.atan2(Math.sin(playerYaw - chaserDirection), Math.cos(playerYaw - chaserDirection)));
     return angle < Math.PI / 6;
   }
 
-  private forwardEscapeDirection(playerYaw: number): number {
-    const angle = Math.atan2(Math.sin(playerYaw - this.azimuth), Math.cos(playerYaw - this.azimuth));
-    return -Math.cos(angle);
+  private movePlayer(input: ChaseInput): void {
+    const stepBoost = input.stepCount * this.config.PLAYER_STEP_GAIN;
+    const moveDistance =
+      Math.max(0, input.forwardAxis) * this.config.PLAYER_FORWARD_SPEED * input.dt + stepBoost;
+
+    this.player.x -= Math.sin(input.playerYaw) * moveDistance;
+    this.player.z -= Math.cos(input.playerYaw) * moveDistance;
+    this.player.x = clamp(this.player.x, -this.config.ROOM_HALF_SIZE, this.config.ROOM_HALF_SIZE);
+    this.player.z = clamp(this.player.z, -this.config.ROOM_HALF_SIZE, this.config.ROOM_HALF_SIZE);
+  }
+
+  private moveChaser(speed: number, dt: number): void {
+    const dx = this.player.x - this.chaser.x;
+    const dz = this.player.z - this.chaser.z;
+    const distance = Math.max(0.0001, Math.hypot(dx, dz));
+    const moveDistance = Math.min(distance, speed * dt);
+    this.chaser.x += (dx / distance) * moveDistance;
+    this.chaser.z += (dz / distance) * moveDistance;
+  }
+
+  private bearingToChaser(): number {
+    const dx = this.chaser.x - this.player.x;
+    const dz = this.chaser.z - this.player.z;
+    return Math.atan2(-dx, -dz);
   }
 
   private snapshot(speed: number): ChaseSnapshot {
+    const distance = Math.hypot(this.player.x - this.chaser.x, this.player.z - this.chaser.z);
     const danger = clamp(
-      (this.config.INITIAL_DISTANCE - this.distance) /
+      (this.config.INITIAL_DISTANCE - distance) /
         (this.config.INITIAL_DISTANCE - this.config.CATCH_RADIUS),
       0,
       1,
     );
 
     return {
-      distance: this.distance,
-      azimuth: this.azimuth,
+      distance,
+      player: { ...this.player },
+      chaser: { ...this.chaser },
+      chaserBearing: this.bearingToChaser(),
       speed,
-      caught: this.distance <= this.config.CATCH_RADIUS,
+      caught: distance <= this.config.CATCH_RADIUS,
       danger,
     };
   }

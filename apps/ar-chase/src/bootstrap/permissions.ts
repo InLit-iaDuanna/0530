@@ -9,9 +9,25 @@ type RequestPermissionEvent = EventTarget & {
   requestPermission?: () => Promise<'granted' | 'denied' | 'default'>;
 };
 
+function getPermissionEvent(name: 'DeviceMotionEvent' | 'DeviceOrientationEvent'): RequestPermissionEvent | undefined {
+  const scope = globalThis as unknown as Record<string, unknown>;
+  return scope[name] as RequestPermissionEvent | undefined;
+}
+
+export async function requestOrientationPermission(): Promise<boolean> {
+  const orientationEvent = getPermissionEvent('DeviceOrientationEvent');
+
+  if (typeof orientationEvent?.requestPermission !== 'function') {
+    return true;
+  }
+
+  const result = await orientationEvent.requestPermission();
+  return result === 'granted';
+}
+
 export async function requestMotionPermissions(): Promise<boolean> {
-  const motionEvent = DeviceMotionEvent as unknown as RequestPermissionEvent | undefined;
-  const orientationEvent = DeviceOrientationEvent as unknown as RequestPermissionEvent | undefined;
+  const motionEvent = getPermissionEvent('DeviceMotionEvent');
+  const orientationEvent = getPermissionEvent('DeviceOrientationEvent');
 
   const requests: Array<Promise<'granted' | 'denied' | 'default'>> = [];
 

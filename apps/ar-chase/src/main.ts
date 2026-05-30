@@ -1,13 +1,11 @@
 import './ui/overlay.css';
-import { createCameraStream, type CameraStream } from './bootstrap/camera-stream';
-import { canUseCamera, requestMotionPermissions } from './bootstrap/permissions';
+import { requestOrientationPermission } from './bootstrap/permissions';
 import { requestWakeLock } from './bootstrap/wake-lock';
-import { ChaseAI } from './game/chase-ai';
+import { ChaseAI, DEFAULT_CHASE_CONFIG } from './game/chase-ai';
 import { ScoreTracker, readBestScore } from './game/score';
 import { StateMachine } from './game/state';
 import { ForwardInput } from './input/forward';
 import { JoystickInput } from './input/joystick';
-import { MotionInput } from './input/motion';
 import { OrientationInput } from './input/orientation';
 import type { InputFrame } from './input/types';
 import { setCaughtEffect } from './scene/postfx';
@@ -78,71 +76,35 @@ const overlay = new Overlay(app, {
 });
 const renderer = new GameRenderer(overlay.sceneHost);
 const orientation = new OrientationInput();
-const motion = new MotionInput();
 const forward = new ForwardInput(overlay.forwardButton);
 const joystick = new JoystickInput(overlay.root, overlay.joystickPad);
 const chase = new ChaseAI();
 const score = new ScoreTracker();
 const audio = new AudioFeedback();
 
-let cameraStream: CameraStream | null = null;
 let animationId = 0;
 let lastFrame = performance.now();
 let elapsedSeconds = 0;
 let fallbackYaw = 0;
 let fallbackPitch = 0;
-let motionAllowed = false;
-let motionWarned = false;
-let controlsForced = false;
 
 state.subscribe((next) => {
   overlay.setState(next);
   setCaughtEffect(overlay.root, next === 'caught');
-  joystick.setVisible(
-    next === 'degraded_no_motion' ||
-      next === 'degraded_no_camera' ||
-      (controlsForced && next === 'playing'),
-  );
+  joystick.setVisible(next === 'playing');
 });
-state.setState('permission');
-renderer.setFallbackBackground();
 chase.reset();
-overlay.updateHud(0, 0, 12);
+overlay.updateHud(0, 0, DEFAULT_CHASE_CONFIG.INITIAL_DISTANCE);
+overlay.updateTracker(Math.PI, DEFAULT_CHASE_CONFIG.INITIAL_DISTANCE, 0);
 
 async function startExperience(): Promise<void> {
   void audio.start();
   void requestWakeLock();
-
-  try {
-    motionAllowed = await requestMotionPermissions();
-  } catch {
-    motionAllowed = false;
-  }
-
-  if (!canUseCamera()) {
-    controlsForced = true;
-    state.setState('degraded_no_camera');
-    await beginRound();
-    return;
-  }
-
-  try {
-    cameraStream = await createCameraStream();
-    renderer.setCameraVideo(cameraStream.video);
-  } catch {
-    controlsForced = true;
-    state.setState('degraded_no_camera');
-    renderer.setFallbackBackground();
-    await beginRound();
-    return;
-  }
-
-  if (!motionAllowed) {
-    controlsForced = true;
-    state.setState('degraded_no_motion');
-  }
-
+  const orientationAllowed = await requestOrientationPermission().catch(() => false);
   await beginRound();
+  if (!orientationAllowed) {
+    overlay.flash('可拖动右侧转身');
+  }
 }
 
 async function restart(): Promise<void> {
@@ -156,10 +118,10 @@ async function beginRound(): Promise<void> {
   chase.reset();
   orientation.calibrate();
   elapsedSeconds = 0;
-  motionWarned = false;
   fallbackYaw = 0;
   fallbackPitch = 0;
-  overlay.updateHud(0, 0, 12);
+  overlay.updateHud(0, 0, DEFAULT_CHASE_CONFIG.INITIAL_DISTANCE);
+  overlay.updateTracker(Math.PI, DEFAULT_CHASE_CONFIG.INITIAL_DISTANCE, 0);
   await overlay.countdown();
   score.start();
   lastFrame = performance.now();
@@ -183,8 +145,9 @@ function tick(now: number): void {
 
   const elapsedMs = score.update(now);
   renderer.chaser.update(snapshot, input.yaw, elapsedSeconds);
-  renderer.render(input.yaw, input.pitch);
+  renderer.render(snapshot, input.yaw, input.pitch);
   overlay.updateHud(elapsedMs, snapshot.danger, snapshot.distance);
+  overlay.updateTracker(normalizeAngle(snapshot.chaserBearing - input.yaw), snapshot.distance, snapshot.danger);
   audio.update(snapshot.danger);
 
   if (snapshot.caught) {
@@ -202,17 +165,8 @@ function readInput(now: number): InputFrame {
   const orient = orientation.snapshot();
   const forwardInput = forward.snapshot();
   const joy = joystick.snapshot();
-  const steps = motionAllowed ? motion.consumeSteps() : 0;
-  const hasMotion = motionAllowed && motion.hasRecentMotion(now);
 
-  if (motionAllowed && !hasMotion && now - lastFrame > 0 && elapsedSeconds > 4 && !motionWarned) {
-    motionWarned = true;
-    controlsForced = true;
-    state.setState('degraded_no_motion');
-    overlay.flash('未检测到运动，已启用摇杆');
-  }
-
-  fallbackYaw += joy.lookYaw + joy.x * 0.025;
+  fallbackYaw += joy.lookYaw - joy.x * 0.025;
   fallbackPitch = Math.max(-0.65, Math.min(0.65, fallbackPitch + joy.lookPitch));
 
   const yaw = orient.active ? orient.yaw : fallbackYaw;
@@ -220,9 +174,7 @@ function readInput(now: number): InputFrame {
   let source: InputFrame['source'] = 'none';
   const forwardHeld = forwardInput.held || joy.y > 0.05;
 
-  if (steps > 0 && (joy.active || forwardHeld)) source = 'mixed';
-  else if (steps > 0) source = 'motion';
-  else if (forwardInput.keyboard) source = 'keyboard';
+  if (forwardInput.keyboard) source = 'keyboard';
   else if (forwardHeld) source = 'forward';
   else if (joy.active) source = 'joystick';
 
@@ -230,11 +182,15 @@ function readInput(now: number): InputFrame {
     yaw,
     pitch,
     forwardHeld,
-    stepCount: steps,
+    stepCount: 0,
     joystick: {
       x: joy.x,
       y: joy.y,
     },
     source,
   };
+}
+
+function normalizeAngle(angle: number): number {
+  return Math.atan2(Math.sin(angle), Math.cos(angle));
 }

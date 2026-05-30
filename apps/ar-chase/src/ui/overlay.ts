@@ -16,6 +16,8 @@ export class Overlay {
   private readonly timeEl: HTMLDivElement;
   private readonly dangerEl: HTMLDivElement;
   private readonly distanceEl: HTMLDivElement;
+  private readonly trackerEl: HTMLDivElement;
+  private readonly trackerLabelEl: HTMLSpanElement;
   private readonly messageEl: HTMLDivElement;
   private countdownTimer = 0;
 
@@ -27,12 +29,16 @@ export class Overlay {
       <div class="hud" aria-live="polite">
         <div class="score">00:00</div>
         <div class="danger"><span></span></div>
-        <div class="distance">12.0m</div>
+        <div class="distance">14.0m</div>
+      </div>
+      <div class="tracker" aria-live="polite">
+        <span class="tracker-arrow">↑</span>
+        <span class="tracker-label">身后 14.0m</span>
       </div>
       <div class="panel">
-        <p class="eyebrow">Web AR Chase</p>
+        <p class="eyebrow">Room Chase</p>
         <h1>别被追上</h1>
-        <p class="copy">需要摄像头与运动权限。移动手机、转身、原地踏步来拉开距离。</p>
+        <p class="copy">一个大房间里的第一人称追逐。看方向标，转身确认追逐者位置，按住前进逃跑。</p>
         <button class="primary" type="button">开始体验</button>
         <button class="secondary" type="button">再来一次</button>
       </div>
@@ -48,6 +54,8 @@ export class Overlay {
     this.timeEl = this.root.querySelector('.score')!;
     this.dangerEl = this.root.querySelector('.danger span')!;
     this.distanceEl = this.root.querySelector('.distance')!;
+    this.trackerEl = this.root.querySelector('.tracker')!;
+    this.trackerLabelEl = this.root.querySelector('.tracker-label')!;
     this.messageEl = this.root.querySelector('.message')!;
     this.forwardButton = this.root.querySelector('.forward')!;
     this.joystickPad = this.root.querySelector('.joystick')!;
@@ -61,6 +69,7 @@ export class Overlay {
     this.panel.classList.toggle('is-hidden', state === 'playing' || state === 'ready');
     this.hud.classList.toggle('is-visible', state === 'playing');
     this.root.classList.toggle('show-forward', state === 'playing');
+    this.root.classList.toggle('show-tracker', state === 'playing');
 
     const title = this.panel.querySelector('h1')!;
     const copy = this.panel.querySelector('.copy')!;
@@ -72,19 +81,17 @@ export class Overlay {
 
     if (state === 'boot' || state === 'permission') {
       title.textContent = '别被追上';
-      copy.textContent = window.isSecureContext
-        ? '需要摄像头与运动权限。移动手机、转身、原地踏步来拉开距离。'
-        : '真机测试需要 HTTPS。你仍可在桌面降级模式里试玩。';
+      copy.textContent = '一个大房间里的第一人称追逐。看方向标，转身确认追逐者位置，按住前进逃跑。';
       primary.textContent = '开始体验';
     }
 
     if (state === 'degraded_no_camera') {
-      title.textContent = '摄像头不可用';
-      copy.textContent = '已切换到黑色背景和摇杆控制，游戏仍可继续。';
+      title.textContent = '简化控制';
+      copy.textContent = '当前环境不完整，已切换到简化控制方式。';
     }
 
     if (state === 'degraded_no_motion') {
-      this.flash('未检测到运动，已启用摇杆');
+      this.flash('已启用简化控制');
     }
   }
 
@@ -100,6 +107,12 @@ export class Overlay {
     this.timeEl.textContent = formatScore(scoreMs);
     this.dangerEl.style.transform = `scaleX(${danger})`;
     this.distanceEl.textContent = `${distance.toFixed(1)}m`;
+  }
+
+  updateTracker(relativeBearing: number, distance: number, danger: number): void {
+    this.trackerEl.style.setProperty('--tracker-angle', `${-relativeBearing}rad`);
+    this.trackerEl.style.setProperty('--tracker-danger', `${danger}`);
+    this.trackerLabelEl.textContent = `${bearingLabel(relativeBearing)} ${distance.toFixed(1)}m`;
   }
 
   async countdown(): Promise<void> {
@@ -125,4 +138,11 @@ export class Overlay {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function bearingLabel(angle: number): string {
+  const abs = Math.abs(angle);
+  if (abs < Math.PI / 5) return '前方';
+  if (abs > (Math.PI * 4) / 5) return '身后';
+  return angle > 0 ? '左侧' : '右侧';
 }

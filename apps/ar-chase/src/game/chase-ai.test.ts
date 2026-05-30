@@ -100,4 +100,33 @@ describe('ChaseAI', () => {
     });
     expect(toward.distance).toBeLessThan(initial.distance);
   });
+
+  it('uses the same yaw convention as the Three.js camera', () => {
+    const ai = new ChaseAI({
+      ...DEFAULT_CHASE_CONFIG,
+      BASE_CHASE_SPEED: 0,
+      CHASE_SPEED_RAMP: 0,
+    });
+
+    const right = ai.update({
+      dt: 1,
+      elapsed: 0,
+      playerYaw: -Math.PI / 2,
+      forwardAxis: 1,
+      stepCount: 0,
+    });
+
+    expect(right.player.x).toBeGreaterThan(0);
+
+    ai.reset();
+    const left = ai.update({
+      dt: 1,
+      elapsed: 0,
+      playerYaw: Math.PI / 2,
+      forwardAxis: 1,
+      stepCount: 0,
+    });
+
+    expect(left.player.x).toBeLessThan(0);
+  });
 });
