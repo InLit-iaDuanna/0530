@@ -517,8 +517,8 @@ function createHandTorch(): THREE.Group {
 
 function createCaveScene(): THREE.Group {
   const group = new THREE.Group();
-  const caveWallTexture = loadCaveTexture("/textures/cave-wall.jpg", 18, 42);
-  const caveFloorTexture = loadCaveTexture("/textures/cave-floor.jpg", 13, 44);
+  const caveWallTexture = loadCaveTexture("/textures/cave-wall.jpg", 45, 105);
+  const caveFloorTexture = loadCaveTexture("/textures/cave-floor.jpg", 32, 110);
   const caveMaterial = new THREE.MeshStandardMaterial({
     color: "#ffffff",
     roughness: 0.98,
@@ -726,7 +726,7 @@ function createCaveBackWallGeometry(): THREE.BufferGeometry {
 
 function createEntranceRocks(): THREE.Group {
   const group = new THREE.Group();
-  const entranceRockTexture = loadCaveTexture("/textures/cave-wall.jpg", 2.4, 2.4);
+  const entranceRockTexture = loadCaveTexture("/textures/cave-wall.jpg", 6, 6);
   const material = new THREE.MeshStandardMaterial({
     color: "#f0dfc8",
     roughness: 0.98,
