@@ -77,16 +77,16 @@ scene.add(moonLight);
 const hemisphere = new THREE.HemisphereLight("#5c789d", "#13140c", 0.68);
 scene.add(hemisphere);
 
-const torchLight = new THREE.PointLight("#ff9f42", 13, 44, 1.35);
+const torchLight = new THREE.PointLight("#ff9f42", 16, 68, 1.18);
 torchLight.position.set(1.05, -0.86, -1.32);
 torchLight.castShadow = true;
 torchLight.shadow.mapSize.set(512, 512);
 torchLight.shadow.bias = -0.00008;
 camera.add(torchLight);
 
-const torchBeam = new THREE.SpotLight("#ffd19a", 10, 70, Math.PI * 0.27, 0.78, 1.5);
+const torchBeam = new THREE.SpotLight("#ffd19a", 14, 108, Math.PI * 0.36, 0.82, 1.25);
 torchBeam.position.set(0.82, -0.74, -1.2);
-torchBeam.target.position.set(0.22, -0.42, -4.6);
+torchBeam.target.position.set(0.14, -0.34, -7.8);
 torchBeam.castShadow = true;
 torchBeam.shadow.mapSize.set(512, 512);
 torchBeam.shadow.bias = -0.00008;
@@ -1173,20 +1173,33 @@ function updateMovement(delta: number): void {
   const isMoving = movingForward || movingBack || movingLeft || movingRight;
   const speed = keyState.has("ShiftLeft") || keyState.has("ShiftRight") ? RUN_SPEED : WALK_SPEED;
   const distance = speed * delta;
-  const forward = new THREE.Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
-  const right = new THREE.Vector3(Math.cos(yaw), 0, Math.sin(yaw));
+  const forward = new THREE.Vector3();
+  camera.getWorldDirection(forward);
+  forward.y = 0;
+  if (forward.lengthSq() < 0.0001) {
+    forward.set(Math.sin(yaw), 0, -Math.cos(yaw));
+  } else {
+    forward.normalize();
+  }
+  const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+  const movement = new THREE.Vector3();
 
   if (movingForward) {
-    camera.position.addScaledVector(forward, distance);
+    movement.add(forward);
   }
   if (movingBack) {
-    camera.position.addScaledVector(forward, -distance);
+    movement.addScaledVector(forward, -1);
   }
   if (movingLeft) {
-    camera.position.addScaledVector(right, -distance);
+    movement.addScaledVector(right, -1);
   }
   if (movingRight) {
-    camera.position.addScaledVector(right, distance);
+    movement.add(right);
+  }
+
+  if (movement.lengthSq() > 0) {
+    movement.normalize();
+    camera.position.addScaledVector(movement, distance);
   }
 
   camera.position.x = THREE.MathUtils.clamp(camera.position.x, -FOREST_SIZE * 0.48, FOREST_SIZE * 0.48);
@@ -1259,8 +1272,8 @@ function animate(): void {
 
 function updateTorch(time: number): void {
   const flicker = 0.72 + Math.sin(time * 19.4) * 0.13 + Math.sin(time * 31.7) * 0.08;
-  torchLight.intensity = THREE.MathUtils.lerp(10.5, 16.2, flicker);
-  torchBeam.intensity = THREE.MathUtils.lerp(7.2, 12.8, flicker);
+  torchLight.intensity = THREE.MathUtils.lerp(14.5, 22.5, flicker);
+  torchBeam.intensity = THREE.MathUtils.lerp(11.5, 20.5, flicker);
   torch.position.y = -1.04 + Math.sin(time * 2.2) * 0.018;
   torch.rotation.z = -0.24 + Math.sin(time * 3.1) * 0.025;
 
