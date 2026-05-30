@@ -7,6 +7,9 @@ const TREE_COUNT = 540;
 const BRANCH_LIMIT = 1700;
 const ROCK_COUNT = 135;
 const LOG_COUNT = 34;
+const TREE_SPRITE_COUNT = 48;
+const GRASS_PATCH_COUNT = 190;
+const ROCK_SPRITE_COUNT = 34;
 const EYE_HEIGHT = 4.2;
 const WALK_SPEED = 18;
 const RUN_SPEED = 31;
@@ -51,7 +54,7 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const textureLoader = new THREE.TextureLoader();
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color("#071018");
+scene.background = loadSceneTexture("/textures/asset-pack/forest-backdrop.png");
 scene.fog = new THREE.FogExp2("#09141b", 0.0095);
 
 const camera = new THREE.PerspectiveCamera(66, 1, 0.1, 520);
@@ -105,10 +108,13 @@ camera.add(torch);
 const terrain = new THREE.Mesh(
   createTerrainGeometry(),
   new THREE.MeshStandardMaterial({
+    color: "#cad6b8",
     roughness: 0.96,
     metalness: 0.02,
     vertexColors: true,
-    map: createGroundTexture()
+    map: loadRepeatingTexture("/textures/asset-pack/forest-ground.png", 52, 52),
+    bumpMap: loadRepeatingTexture("/textures/asset-pack/forest-ground.png", 52, 52),
+    bumpScale: 0.055
   })
 );
 terrain.receiveShadow = true;
@@ -435,14 +441,31 @@ function createRockTexture(): THREE.CanvasTexture {
   return texture;
 }
 
-function loadCaveTexture(path: string, repeatX: number, repeatY: number): THREE.Texture {
+function loadSceneTexture(path: string): THREE.Texture {
   const texture = textureLoader.load(path);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function loadSpriteTexture(path: string): THREE.Texture {
+  const texture = loadSceneTexture(path);
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  return texture;
+}
+
+function loadRepeatingTexture(path: string, repeatX: number, repeatY: number): THREE.Texture {
+  const texture = loadSceneTexture(path);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(repeatX, repeatY);
   texture.anisotropy = 8;
   return texture;
+}
+
+function loadCaveTexture(path: string, repeatX: number, repeatY: number): THREE.Texture {
+  return loadRepeatingTexture(path, repeatX, repeatY);
 }
 
 function createHandTorch(): THREE.Group {
@@ -520,8 +543,11 @@ function createHandTorch(): THREE.Group {
 
 function createCaveScene(): THREE.Group {
   const group = new THREE.Group();
-  const caveWallTexture = loadCaveTexture("/textures/cave-wall.jpg", 45, 105);
-  const caveFloorTexture = loadCaveTexture("/textures/cave-floor.jpg", 32, 110);
+  const caveWallTexture = loadCaveTexture("/textures/asset-pack/cave-wall-1.png", 45, 105);
+  const caveDetailTexture = loadCaveTexture("/textures/asset-pack/cave-wall-2.png", 12, 12);
+  const caveBackTexture = loadCaveTexture("/textures/asset-pack/cave-wall-3.png", 6, 6);
+  const caveFloorTexture = loadCaveTexture("/textures/asset-pack/cave-floor-dark.png", 32, 110);
+  const caveFloorStoneTexture = loadCaveTexture("/textures/asset-pack/cave-floor-light.png", 8, 8);
   const caveMaterial = new THREE.MeshStandardMaterial({
     color: "#ffffff",
     roughness: 0.98,
@@ -532,6 +558,25 @@ function createCaveScene(): THREE.Group {
     bumpScale: 0.13,
     side: THREE.DoubleSide
   });
+  const caveDetailMaterial = new THREE.MeshStandardMaterial({
+    color: "#fff4dd",
+    roughness: 0.96,
+    metalness: 0.01,
+    vertexColors: true,
+    map: caveDetailTexture,
+    bumpMap: caveDetailTexture,
+    bumpScale: 0.11
+  });
+  const caveBackMaterial = new THREE.MeshStandardMaterial({
+    color: "#fff4dc",
+    roughness: 0.98,
+    metalness: 0.01,
+    vertexColors: true,
+    map: caveBackTexture,
+    bumpMap: caveBackTexture,
+    bumpScale: 0.1,
+    side: THREE.DoubleSide
+  });
   const floorMaterial = new THREE.MeshStandardMaterial({
     color: "#fff2df",
     roughness: 0.99,
@@ -540,6 +585,15 @@ function createCaveScene(): THREE.Group {
     map: caveFloorTexture,
     bumpMap: caveFloorTexture,
     bumpScale: 0.075
+  });
+  const floorStoneMaterial = new THREE.MeshStandardMaterial({
+    color: "#fff0d1",
+    roughness: 0.97,
+    metalness: 0.01,
+    vertexColors: true,
+    map: caveFloorStoneTexture,
+    bumpMap: caveFloorStoneTexture,
+    bumpScale: 0.06
   });
   const darkMouthMaterial = new THREE.MeshBasicMaterial({
     color: "#030506",
@@ -558,7 +612,7 @@ function createCaveScene(): THREE.Group {
   floor.receiveShadow = true;
   group.add(floor);
 
-  const backWall = new THREE.Mesh(createCaveBackWallGeometry(), caveMaterial);
+  const backWall = new THREE.Mesh(createCaveBackWallGeometry(), caveBackMaterial);
   backWall.castShadow = true;
   backWall.receiveShadow = true;
   group.add(backWall);
@@ -576,7 +630,7 @@ function createCaveScene(): THREE.Group {
 
   const entranceRocks = createEntranceRocks();
   group.add(entranceRocks);
-  group.add(createCaveDetailRocks(caveMaterial, floorMaterial));
+  group.add(createCaveDetailRocks(caveDetailMaterial, floorStoneMaterial));
   return group;
 }
 
@@ -862,7 +916,7 @@ function createCaveDetailRocks(wallMaterial: THREE.Material, floorMaterial: THRE
 
 function createEntranceRocks(): THREE.Group {
   const group = new THREE.Group();
-  const entranceRockTexture = loadCaveTexture("/textures/cave-wall.jpg", 3.5, 3.5);
+  const entranceRockTexture = loadCaveTexture("/textures/asset-pack/cave-wall-3.png", 3.5, 3.5);
   const material = new THREE.MeshStandardMaterial({
     color: "#f0dfc8",
     roughness: 0.88,
@@ -941,6 +995,7 @@ function createTerrainGeometry(): THREE.BufferGeometry {
   const vertexCount = row * row;
   const positions = new Float32Array(vertexCount * 3);
   const colors = new Float32Array(vertexCount * 3);
+  const uvs = new Float32Array(vertexCount * 2);
   const indices = new Uint32Array(TERRAIN_SEGMENTS * TERRAIN_SEGMENTS * 6);
   const colorA = new THREE.Color("#11170d");
   const colorB = new THREE.Color("#253019");
@@ -961,6 +1016,8 @@ function createTerrainGeometry(): THREE.BufferGeometry {
       colors[pointer * 3] = groundColor.r;
       colors[pointer * 3 + 1] = groundColor.g;
       colors[pointer * 3 + 2] = groundColor.b;
+      uvs[pointer * 2] = x / TERRAIN_SEGMENTS;
+      uvs[pointer * 2 + 1] = z / TERRAIN_SEGMENTS;
       pointer += 1;
     }
   }
@@ -985,6 +1042,7 @@ function createTerrainGeometry(): THREE.BufferGeometry {
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
 
@@ -1031,13 +1089,13 @@ function createForest(): void {
     map: leafTexture
   });
   const rockMaterial = new THREE.MeshStandardMaterial({
-    color: "#b8bbb0",
+    color: "#b4c2b2",
     roughness: 0.9,
     metalness: 0,
     vertexColors: true,
     map: rockTexture,
     bumpMap: rockTexture,
-    bumpScale: 0.06
+    bumpScale: 0.04
   });
 
   const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, TREE_COUNT);
@@ -1223,7 +1281,105 @@ function createForest(): void {
   rocks.instanceMatrix.needsUpdate = true;
   logs.instanceMatrix.needsUpdate = true;
 
-  scene.add(trunks, branches, conifers, crowns, rocks, logs);
+  scene.add(trunks, branches, conifers, crowns, rocks, logs, createForestSpriteLayer());
+}
+
+function createForestSpriteLayer(): THREE.Group {
+  const group = new THREE.Group();
+  const rockMaterial = new THREE.SpriteMaterial({
+    map: loadSpriteTexture("/textures/asset-pack/forest-rock.png"),
+    color: "#9fb0a5",
+    transparent: true,
+    alphaTest: 0.08
+  });
+  const treeMaterials = [
+    new THREE.SpriteMaterial({
+      map: loadSpriteTexture("/textures/asset-pack/tree-1.png"),
+      color: "#8fb0a0",
+      transparent: true,
+      alphaTest: 0.08
+    }),
+    new THREE.SpriteMaterial({
+      map: loadSpriteTexture("/textures/asset-pack/tree-2.png"),
+      color: "#8aa89b",
+      transparent: true,
+      alphaTest: 0.08
+    })
+  ];
+  const grassMaterials = [
+    new THREE.SpriteMaterial({
+      map: loadSpriteTexture("/textures/asset-pack/grass-1.png"),
+      color: "#9eb87d",
+      transparent: true,
+      alphaTest: 0.06
+    }),
+    new THREE.SpriteMaterial({
+      map: loadSpriteTexture("/textures/asset-pack/grass-2.png"),
+      color: "#93b776",
+      transparent: true,
+      alphaTest: 0.06
+    })
+  ];
+
+  treeMaterials.forEach((material) => {
+    material.fog = true;
+    material.depthWrite = false;
+  });
+  grassMaterials.forEach((material) => {
+    material.fog = true;
+    material.depthWrite = false;
+  });
+  rockMaterial.fog = true;
+  rockMaterial.depthWrite = false;
+
+  for (let i = 0; i < TREE_SPRITE_COUNT; i += 1) {
+    const angle = seededRandom(i + 10100) * Math.PI * 2;
+    const radius = THREE.MathUtils.lerp(120, FOREST_SIZE * 0.45, seededRandom(i + 10200));
+    const x = Math.cos(angle) * radius + (seededRandom(i + 10300) - 0.5) * 26;
+    const z = Math.sin(angle) * radius + (seededRandom(i + 10400) - 0.5) * 26;
+    if (Math.hypot(x - START_X, z - START_Z) < CLEARING_RADIUS * 1.8 || isInCaveClearing(x, z, 18)) {
+      continue;
+    }
+
+    const height = THREE.MathUtils.lerp(22, 38, seededRandom(i + 10500));
+    const sprite = new THREE.Sprite(treeMaterials[i % treeMaterials.length]);
+    sprite.center.set(0.5, 0);
+    sprite.position.set(x, sampleHeight(x, z) - 0.45, z);
+    sprite.scale.set(height * 0.58, height, 1);
+    group.add(sprite);
+  }
+
+  for (let i = 0; i < GRASS_PATCH_COUNT; i += 1) {
+    const x = (seededRandom(i + 10600) - 0.5) * FOREST_SIZE * 0.82;
+    const z = (seededRandom(i + 10700) - 0.5) * FOREST_SIZE * 0.82;
+    if (Math.hypot(x - START_X, z - START_Z) < CLEARING_RADIUS * 0.48 || isInCaveClearing(x, z, 10)) {
+      continue;
+    }
+
+    const size = THREE.MathUtils.lerp(2.2, 5.8, seededRandom(i + 10800));
+    const sprite = new THREE.Sprite(grassMaterials[i % grassMaterials.length]);
+    sprite.center.set(0.5, 0);
+    sprite.position.set(x, sampleHeight(x, z) - 0.18, z);
+    sprite.scale.set(size * THREE.MathUtils.lerp(1.05, 1.8, seededRandom(i + 10900)), size, 1);
+    group.add(sprite);
+  }
+
+  for (let i = 0; i < ROCK_SPRITE_COUNT; i += 1) {
+    const x = (seededRandom(i + 11000) - 0.5) * FOREST_SIZE * 0.78;
+    const z = (seededRandom(i + 11100) - 0.5) * FOREST_SIZE * 0.78;
+    if (Math.hypot(x - START_X, z - START_Z) < CLEARING_RADIUS * 0.7 || isInCaveClearing(x, z, 8)) {
+      continue;
+    }
+
+    const width = THREE.MathUtils.lerp(4.5, 10.5, seededRandom(i + 11200));
+    const sprite = new THREE.Sprite(rockMaterial);
+    sprite.center.set(0.5, 0);
+    sprite.position.set(x, sampleHeight(x, z) - 0.2, z);
+    sprite.scale.set(width, width * THREE.MathUtils.lerp(0.52, 0.78, seededRandom(i + 11300)), 1);
+    group.add(sprite);
+  }
+
+  return group;
 }
 
 function createStarField(): THREE.Points {
@@ -1255,14 +1411,15 @@ function createStarField(): THREE.Points {
 function createMistLayer(): THREE.Group {
   const group = new THREE.Group();
   const material = new THREE.MeshBasicMaterial({
-    color: "#b6c7c9",
+    color: "#d6e3df",
+    map: loadSpriteTexture("/textures/asset-pack/mist.png"),
     transparent: true,
-    opacity: 0.045,
+    opacity: 0.12,
     depthWrite: false
   });
 
   for (let i = 0; i < 26; i += 1) {
-    const mist = new THREE.Mesh(new THREE.PlaneGeometry(58, 8), material);
+    const mist = new THREE.Mesh(new THREE.PlaneGeometry(74, 16), material);
     mist.position.set(
       (seededRandom(i + 1600) - 0.5) * FOREST_SIZE * 0.8,
       THREE.MathUtils.lerp(3, 9, seededRandom(i + 1700)),
