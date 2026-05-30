@@ -20,5 +20,20 @@ jobs:
           test -f CONTRIBUTING.md
           test -f .gitignore
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.11'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
       - name: Check diffs
         run: git diff --check
