@@ -5,6 +5,7 @@ export interface ProjectedSample {
   readonly t: number;
   readonly aVert: number;
   readonly aHorz: number;
+  readonly aMag: number;
   readonly gyroMag: number;
   readonly gravityX: number;
   readonly gravityY: number;
@@ -77,11 +78,13 @@ export const project = (sample: MotionSample): ProjectedSample => {
     z: gravityDir.z * aVert,
   });
   const aHorz = magnitude3(horzVec);
+  const aMag = magnitude3(sample.accel);
   const gyroMag = magnitude3(sample.gyro);
   return {
     t: sample.t,
     aVert,
     aHorz,
+    aMag,
     gyroMag,
     gravityX: gravityDir.x,
     gravityY: gravityDir.y,

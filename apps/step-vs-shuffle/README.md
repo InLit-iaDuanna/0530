@@ -7,9 +7,9 @@
 ## 思路
 
 1. **重力对齐投影**：把加速度投影为水平/垂直分量，降低手机朝向影响。
-2. **2.56 秒滑窗特征**：包含能量、主频、谱熵、jerk、陀螺仪比例和 cadence drift。
+2. **2.56 秒滑窗特征**：包含加速度模长峰值、步态峰值数、步间隔 CV、主频、谱熵、jerk、陀螺仪比例和 cadence drift。
 3. **三段标定**：静止 5 秒、小步走 8 秒、手动伪造 8 秒；静止和手动伪造都训练为 `other`。
-4. **IMU 门控 + KNN**：小步走必须满足稳定 cadence、水平/垂直能量区间、低谱熵和低手部旋转伪造特征。
+4. **步态峰值门控 + KNN**：参考开源 pedometer 的做法，先在加速度模长/垂直分量上找连续峰值，再用 cadence、步间隔、谱熵和手部旋转特征过滤。
 5. **状态机防抖**：`smallWalk` 需要约 1.2 秒连续成立才提交，回落到 `other` 更快。
 
 ## HealthKit bridge
@@ -54,6 +54,7 @@ npm run build
 
 - 小步走漏判偏多：放宽 `smallWalkRmsMin`、`smallWalkVertRatioMax` 或 `spectralEntropyMax`。
 - 晃手机误判偏多：收紧 `handGyroPeakMax`、`handGyroAccelRatioMax` 或 `singleAxisVertRatioMin`。
+- 走路节律不稳定：放宽 `stepIntervalCvMax` 或 `cadenceDriftMaxHz`。
 - 切换太慢/太快：调整 `SMALL_WALK_HOLD_MS` 和 `OTHER_HOLD_MS`。
 
 ## 真机验证标准
