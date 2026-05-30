@@ -1,6 +1,6 @@
-# Night Forest Walk Demo
+# Night Cave Torch Walk Demo
 
-A Vite and Three.js first-person night forest scene with procedural terrain, dense instanced trees, moonlight, fog, and a camera flashlight.
+A Vite and Three.js first-person night forest scene with procedural terrain, dense instanced trees, moonlight, fog, a walkable cave, and a hand-held torch.
 
 ## Run
 
@@ -19,7 +19,7 @@ If you pass a custom port, use that port in the URL.
 
 Browsers will show a warning for the local self-signed certificate; continue past it for development.
 
-Click `Enter forest`, then use `WASD` or arrow keys to walk. Move the mouse to look around; hold `Shift` to move faster.
+Click `Enter cave trail`, then use `WASD` or arrow keys to walk toward the cave. Move the mouse to look around; hold `Shift` to move faster.
 
 ## Scripts
 

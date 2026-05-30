@@ -13,6 +13,13 @@ const RUN_SPEED = 31;
 const START_X = 14;
 const START_Z = 12;
 const CLEARING_RADIUS = 32;
+const CAVE_ENTRANCE_X = 10;
+const CAVE_ENTRANCE_Z = -46;
+const CAVE_LENGTH = 138;
+const CAVE_WIDTH = 18;
+const CAVE_HEIGHT = 16;
+const CAVE_CLEAR_RADIUS = 44;
+const CAVE_COLLIDER_COUNT = 36;
 
 const canvas = document.querySelector<HTMLCanvasElement>("#forest-canvas")!;
 const enterButton = document.querySelector<HTMLButtonElement>("#enter-button")!;
@@ -44,6 +51,7 @@ scene.add(camera);
 
 const keyState = new Set<string>();
 const treeColliders: Array<{ x: number; z: number; radius: number }> = [];
+const torchFlames: THREE.Mesh[] = [];
 let yaw = 0;
 let pitch = 0;
 let walkingActive = false;
@@ -64,14 +72,24 @@ scene.add(moonLight);
 const hemisphere = new THREE.HemisphereLight("#5c789d", "#13140c", 0.68);
 scene.add(hemisphere);
 
-const flashlight = new THREE.SpotLight("#fff2d4", 14, 96, Math.PI * 0.18, 0.58, 1.2);
-flashlight.position.set(0.15, -0.08, 0.08);
-flashlight.target.position.set(0, -0.2, -1);
-flashlight.castShadow = true;
-flashlight.shadow.mapSize.set(512, 512);
-flashlight.shadow.bias = -0.00008;
-camera.add(flashlight);
-camera.add(flashlight.target);
+const torchLight = new THREE.PointLight("#ff9f42", 13, 44, 1.35);
+torchLight.position.set(1.05, -0.86, -1.32);
+torchLight.castShadow = true;
+torchLight.shadow.mapSize.set(512, 512);
+torchLight.shadow.bias = -0.00008;
+camera.add(torchLight);
+
+const torchBeam = new THREE.SpotLight("#ffd19a", 10, 70, Math.PI * 0.27, 0.78, 1.5);
+torchBeam.position.set(0.82, -0.74, -1.2);
+torchBeam.target.position.set(0.22, -0.42, -4.6);
+torchBeam.castShadow = true;
+torchBeam.shadow.mapSize.set(512, 512);
+torchBeam.shadow.bias = -0.00008;
+camera.add(torchBeam);
+camera.add(torchBeam.target);
+
+const torch = createHandTorch();
+camera.add(torch);
 
 const terrain = new THREE.Mesh(
   createTerrainGeometry(),
@@ -97,6 +115,9 @@ scene.add(starField);
 
 const lowMist = createMistLayer();
 scene.add(lowMist);
+
+const cave = createCaveScene();
+scene.add(cave);
 
 createForest();
 
@@ -177,11 +198,78 @@ function fbm(x: number, z: number, octaves: number, seed: number): number {
   return value / total;
 }
 
-function sampleHeight(x: number, z: number): number {
+function sampleTerrainHeight(x: number, z: number): number {
   const broad = fbm(x * 0.008, z * 0.008, 5, 9.2) - 0.5;
   const detail = fbm(x * 0.038, z * 0.038, 4, 51.7) - 0.5;
   const ridge = Math.abs(fbm(x * 0.015, z * 0.015, 3, 81.3) - 0.5);
   return broad * 15 + detail * 2.7 - ridge * 5.2;
+}
+
+function sampleHeight(x: number, z: number): number {
+  const terrainHeight = sampleTerrainHeight(x, z);
+  const cave = getCaveLocal(x, z);
+
+  if (cave.progress < -0.18 || cave.progress > 1.04 || cave.distance > CAVE_WIDTH * 0.92) {
+    return terrainHeight;
+  }
+
+  const floorHeight = sampleCaveFloor(cave.progress);
+  const edgeFade = 1 - THREE.MathUtils.smoothstep(cave.distance, CAVE_WIDTH * 0.58, CAVE_WIDTH * 0.92);
+  const entranceFade = THREE.MathUtils.smoothstep(cave.progress, -0.18, 0.08);
+  const blend = edgeFade * entranceFade;
+  return THREE.MathUtils.lerp(terrainHeight, floorHeight, blend);
+}
+
+function getCaveLocal(x: number, z: number): { centerX: number; centerZ: number; distance: number; progress: number } {
+  const progress = THREE.MathUtils.clamp((CAVE_ENTRANCE_Z - z) / CAVE_LENGTH, -0.25, 1.08);
+  const centerX = getCaveCenterX(progress);
+  const centerZ = CAVE_ENTRANCE_Z - progress * CAVE_LENGTH;
+  return {
+    centerX,
+    centerZ,
+    distance: Math.abs(x - centerX),
+    progress
+  };
+}
+
+function getCaveCenterX(progress: number): number {
+  const t = THREE.MathUtils.clamp(progress, 0, 1);
+  return CAVE_ENTRANCE_X + Math.sin(t * Math.PI * 1.18) * 8.5 - Math.sin(t * Math.PI * 2.4) * 2.2;
+}
+
+function sampleCaveFloor(progress: number): number {
+  const t = THREE.MathUtils.clamp(progress, 0, 1);
+  const entranceHeight = sampleTerrainHeight(CAVE_ENTRANCE_X, CAVE_ENTRANCE_Z);
+  return entranceHeight - 1.2 - t * 2.4 + Math.sin(t * Math.PI * 2.1) * 0.45;
+}
+
+function isInCaveClearing(x: number, z: number, padding = 0): boolean {
+  const cave = getCaveLocal(x, z);
+  const nearEntrance = Math.hypot(x - CAVE_ENTRANCE_X, z - CAVE_ENTRANCE_Z) < CAVE_CLEAR_RADIUS + padding;
+  const nearTunnel = cave.progress > -0.1 && cave.progress < 1.05 && cave.distance < CAVE_WIDTH * 1.75 + padding;
+  return nearEntrance || nearTunnel;
+}
+
+function moveOutOfCaveClearing(x: number, z: number, seed: number): { x: number; z: number } {
+  if (!isInCaveClearing(x, z, 8)) {
+    return { x, z };
+  }
+
+  const cave = getCaveLocal(x, z);
+  if (cave.progress > 0 && cave.progress < 1.05) {
+    const side = x >= cave.centerX ? 1 : -1;
+    return {
+      x: cave.centerX + side * (CAVE_WIDTH * 2.1 + seededRandom(seed + 1) * 28),
+      z
+    };
+  }
+
+  const angle = Math.atan2(z - CAVE_ENTRANCE_Z, x - CAVE_ENTRANCE_X) + (seededRandom(seed + 2) - 0.5) * 0.36;
+  const radius = CAVE_CLEAR_RADIUS + 10 + seededRandom(seed + 3) * 22;
+  return {
+    x: CAVE_ENTRANCE_X + Math.cos(angle) * radius,
+    z: CAVE_ENTRANCE_Z + Math.sin(angle) * radius
+  };
 }
 
 function createGroundTexture(): THREE.CanvasTexture {
@@ -284,6 +372,380 @@ function createLeafTexture(): THREE.CanvasTexture {
   texture.repeat.set(2.2, 2.2);
   texture.anisotropy = 4;
   return texture;
+}
+
+function createRockTexture(): THREE.CanvasTexture {
+  const textureCanvas = document.createElement("canvas");
+  textureCanvas.width = 256;
+  textureCanvas.height = 256;
+  const context = textureCanvas.getContext("2d");
+  if (!context) {
+    throw new Error("Rock texture failed to initialize.");
+  }
+
+  const gradient = context.createLinearGradient(0, 0, textureCanvas.width, textureCanvas.height);
+  gradient.addColorStop(0, "#20282a");
+  gradient.addColorStop(0.45, "#3b403b");
+  gradient.addColorStop(1, "#141718");
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, textureCanvas.width, textureCanvas.height);
+
+  for (let i = 0; i < 900; i += 1) {
+    const x = seededRandom(i + 3900) * textureCanvas.width;
+    const y = seededRandom(i + 4000) * textureCanvas.height;
+    const length = THREE.MathUtils.lerp(7, 38, seededRandom(i + 4100));
+    const alpha = THREE.MathUtils.lerp(0.06, 0.24, seededRandom(i + 4200));
+    context.strokeStyle = seededRandom(i + 4300) > 0.48 ? `rgb(205 216 198 / ${alpha})` : `rgb(0 0 0 / ${alpha})`;
+    context.lineWidth = THREE.MathUtils.lerp(0.5, 2.8, seededRandom(i + 4400));
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x + Math.cos(i * 0.8) * length, y + Math.sin(i * 1.37) * length);
+    context.stroke();
+  }
+
+  const texture = new THREE.CanvasTexture(textureCanvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(5.4, 2.2);
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function createHandTorch(): THREE.Group {
+  const group = new THREE.Group();
+  group.position.set(1.05, -1.04, -1.42);
+  group.rotation.set(-0.42, 0.24, -0.24);
+
+  const handle = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.08, 1.22, 10),
+    new THREE.MeshStandardMaterial({
+      color: "#5a3928",
+      roughness: 0.86,
+      metalness: 0.02
+    })
+  );
+  handle.position.y = -0.36;
+  handle.rotation.z = 0.1;
+  handle.castShadow = true;
+  group.add(handle);
+
+  const wrapMaterial = new THREE.MeshStandardMaterial({
+    color: "#2a211b",
+    roughness: 0.92
+  });
+  for (let i = 0; i < 4; i += 1) {
+    const wrap = new THREE.Mesh(new THREE.TorusGeometry(0.076, 0.01, 6, 18), wrapMaterial);
+    wrap.position.y = THREE.MathUtils.lerp(0.06, 0.3, i / 3);
+    wrap.rotation.x = Math.PI * 0.5;
+    wrap.castShadow = true;
+    group.add(wrap);
+  }
+
+  const coal = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.105, 0.08, 0.2, 12),
+    new THREE.MeshStandardMaterial({
+      color: "#18110d",
+      roughness: 0.78,
+      emissive: "#5b1708",
+      emissiveIntensity: 0.35
+    })
+  );
+  coal.position.y = 0.36;
+  coal.castShadow = true;
+  group.add(coal);
+
+  const flameOuter = new THREE.Mesh(
+    new THREE.ConeGeometry(0.16, 0.52, 14, 1),
+    new THREE.MeshBasicMaterial({
+      color: "#ff7b1f",
+      transparent: true,
+      opacity: 0.78,
+      depthWrite: false
+    })
+  );
+  flameOuter.position.y = 0.75;
+  group.add(flameOuter);
+  torchFlames.push(flameOuter);
+
+  const flameInner = new THREE.Mesh(
+    new THREE.ConeGeometry(0.085, 0.38, 12, 1),
+    new THREE.MeshBasicMaterial({
+      color: "#ffe0a4",
+      transparent: true,
+      opacity: 0.88,
+      depthWrite: false
+    })
+  );
+  flameInner.position.y = 0.68;
+  flameInner.rotation.y = 0.6;
+  group.add(flameInner);
+  torchFlames.push(flameInner);
+
+  return group;
+}
+
+function createCaveScene(): THREE.Group {
+  const group = new THREE.Group();
+  const rockTexture = createRockTexture();
+  const caveMaterial = new THREE.MeshStandardMaterial({
+    color: "#303533",
+    roughness: 0.98,
+    metalness: 0.01,
+    vertexColors: true,
+    map: rockTexture,
+    bumpMap: rockTexture,
+    bumpScale: 0.11,
+    side: THREE.DoubleSide
+  });
+  const floorMaterial = new THREE.MeshStandardMaterial({
+    color: "#252724",
+    roughness: 0.99,
+    metalness: 0.01,
+    vertexColors: true,
+    map: rockTexture,
+    bumpMap: rockTexture,
+    bumpScale: 0.055
+  });
+  const darkMouthMaterial = new THREE.MeshBasicMaterial({
+    color: "#030506",
+    transparent: true,
+    opacity: 0.82,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  });
+
+  const tunnel = new THREE.Mesh(createCaveTunnelGeometry(), caveMaterial);
+  tunnel.castShadow = true;
+  tunnel.receiveShadow = true;
+  group.add(tunnel);
+
+  const floor = new THREE.Mesh(createCaveFloorGeometry(), floorMaterial);
+  floor.receiveShadow = true;
+  group.add(floor);
+
+  const backWall = new THREE.Mesh(createCaveBackWallGeometry(), caveMaterial);
+  backWall.castShadow = true;
+  backWall.receiveShadow = true;
+  group.add(backWall);
+
+  const mouthShadow = new THREE.Mesh(new THREE.CircleGeometry(10.8, 32, 0, Math.PI), darkMouthMaterial);
+  mouthShadow.position.set(CAVE_ENTRANCE_X, sampleCaveFloor(0) + 8.2, CAVE_ENTRANCE_Z + 1.2);
+  mouthShadow.rotation.y = Math.PI;
+  mouthShadow.scale.set(1.28, 0.88, 1);
+  group.add(mouthShadow);
+
+  const emberLight = new THREE.PointLight("#ff7d2a", 4.8, 38, 1.7);
+  emberLight.position.set(CAVE_ENTRANCE_X - 2.5, sampleCaveFloor(0) + 4.2, CAVE_ENTRANCE_Z - 8);
+  emberLight.castShadow = true;
+  group.add(emberLight);
+
+  const entranceRocks = createEntranceRocks();
+  group.add(entranceRocks);
+  return group;
+}
+
+function createCaveTunnelGeometry(): THREE.BufferGeometry {
+  const rings = 42;
+  const segments = 24;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const indices: number[] = [];
+  const baseColor = new THREE.Color("#252c2d");
+  const highlightColor = new THREE.Color("#55584f");
+  const warmColor = new THREE.Color("#5b3f2d");
+
+  for (let r = 0; r <= rings; r += 1) {
+    const progress = r / rings;
+    const centerX = getCaveCenterX(progress);
+    const centerZ = CAVE_ENTRANCE_Z - progress * CAVE_LENGTH;
+    const floor = sampleCaveFloor(progress);
+    const width = CAVE_WIDTH * THREE.MathUtils.lerp(1.06, 0.8, progress);
+    const height = CAVE_HEIGHT * THREE.MathUtils.lerp(1.1, 0.82, progress);
+
+    for (let s = 0; s <= segments; s += 1) {
+      const arch = s / segments;
+      const angle = Math.PI * arch;
+      const side = Math.cos(angle);
+      const crown = Math.sin(angle);
+      const rough = (fbm(progress * 9.5 + arch * 3.2, arch * 7.8, 4, 93.2) - 0.5) * 1.8;
+      const x = centerX + side * (width + rough * 0.7);
+      const y = floor + Math.max(0.25, crown) * (height + rough) + (1 - crown) * 0.55;
+      const z = centerZ + (fbm(progress * 11, arch * 8, 3, 102.4) - 0.5) * 1.2;
+      const color = baseColor.clone().lerp(highlightColor, crown * 0.32 + seededRandom(r * 71 + s) * 0.18).lerp(warmColor, (1 - progress) * 0.14);
+
+      positions.push(x, y, z);
+      colors.push(color.r, color.g, color.b);
+    }
+  }
+
+  const row = segments + 1;
+  for (let r = 0; r < rings; r += 1) {
+    for (let s = 0; s < segments; s += 1) {
+      const a = r * row + s;
+      const b = a + 1;
+      const c = a + row;
+      const d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setIndex(indices);
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+function createCaveFloorGeometry(): THREE.BufferGeometry {
+  const rings = 42;
+  const segments = 8;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const indices: number[] = [];
+  const colorA = new THREE.Color("#1c201f");
+  const colorB = new THREE.Color("#3f4038");
+
+  for (let r = 0; r <= rings; r += 1) {
+    const progress = r / rings;
+    const centerX = getCaveCenterX(progress);
+    const centerZ = CAVE_ENTRANCE_Z - progress * CAVE_LENGTH;
+    const floor = sampleCaveFloor(progress);
+    const width = CAVE_WIDTH * THREE.MathUtils.lerp(0.78, 0.58, progress);
+
+    for (let s = 0; s <= segments; s += 1) {
+      const across = s / segments - 0.5;
+      const rough = (fbm(progress * 13, across * 9, 4, 119.6) - 0.5) * 0.55;
+      const x = centerX + across * width * 2;
+      const z = centerZ;
+      const y = floor + rough + Math.abs(across) * 0.42;
+      const color = colorA.clone().lerp(colorB, 0.18 + Math.abs(across) * 0.26 + seededRandom(r * 37 + s) * 0.12);
+      positions.push(x, y, z);
+      colors.push(color.r, color.g, color.b);
+    }
+  }
+
+  const row = segments + 1;
+  for (let r = 0; r < rings; r += 1) {
+    for (let s = 0; s < segments; s += 1) {
+      const a = r * row + s;
+      const b = a + 1;
+      const c = a + row;
+      const d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setIndex(indices);
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+function createCaveBackWallGeometry(): THREE.BufferGeometry {
+  const geometry = new THREE.BufferGeometry();
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const indices: number[] = [];
+  const centerX = getCaveCenterX(1);
+  const centerZ = CAVE_ENTRANCE_Z - CAVE_LENGTH - 0.7;
+  const floor = sampleCaveFloor(1);
+  const baseColor = new THREE.Color("#1b1f20");
+  const topColor = new THREE.Color("#40443e");
+
+  positions.push(centerX, floor + CAVE_HEIGHT * 0.42, centerZ);
+  colors.push(baseColor.r, baseColor.g, baseColor.b);
+
+  for (let i = 0; i <= 20; i += 1) {
+    const angle = Math.PI * (i / 20);
+    const rough = (seededRandom(i + 4700) - 0.5) * 1.4;
+    const x = centerX + Math.cos(angle) * (CAVE_WIDTH * 0.74 + rough);
+    const y = floor + Math.sin(angle) * (CAVE_HEIGHT * 0.78 + rough) + 0.7;
+    positions.push(x, y, centerZ);
+    const color = baseColor.clone().lerp(topColor, Math.sin(angle) * 0.45);
+    colors.push(color.r, color.g, color.b);
+  }
+
+  for (let i = 1; i < 21; i += 1) {
+    indices.push(0, i, i + 1);
+  }
+
+  geometry.setIndex(indices);
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  return geometry;
+}
+
+function createEntranceRocks(): THREE.Group {
+  const group = new THREE.Group();
+  const material = new THREE.MeshStandardMaterial({
+    color: "#3b403c",
+    roughness: 0.98
+  });
+  const geometry = new THREE.DodecahedronGeometry(1, 0);
+  const color = new THREE.Color();
+  const dummy = new THREE.Object3D();
+
+  for (let i = 0; i < 26; i += 1) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const depth = THREE.MathUtils.lerp(-8, 13, seededRandom(i + 4800));
+    const spread = THREE.MathUtils.lerp(CAVE_WIDTH * 0.72, CAVE_WIDTH * 1.22, seededRandom(i + 4900));
+    const x = CAVE_ENTRANCE_X + side * spread + (seededRandom(i + 5000) - 0.5) * 4;
+    const z = CAVE_ENTRANCE_Z + depth;
+    const ground = sampleHeight(x, z);
+    const size = THREE.MathUtils.lerp(2.2, 7.4, seededRandom(i + 5100));
+    const rock = new THREE.Mesh(geometry, material.clone());
+
+    color.set("#303634").lerp(new THREE.Color("#65685e"), seededRandom(i + 5200) * 0.45);
+    (rock.material as THREE.MeshStandardMaterial).color.copy(color);
+    dummy.position.set(x, ground + size * 0.42, z);
+    dummy.rotation.set(seededRandom(i + 5300) * Math.PI, seededRandom(i + 5400) * Math.PI, seededRandom(i + 5500) * Math.PI);
+    dummy.scale.set(size * THREE.MathUtils.lerp(0.82, 1.35, seededRandom(i + 5600)), size * 0.72, size);
+    dummy.updateMatrix();
+    rock.applyMatrix4(dummy.matrix);
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    group.add(rock);
+  }
+
+  for (let i = 0; i < 18; i += 1) {
+    const angle = Math.PI * (0.06 + (i / 17) * 0.88);
+    const jitter = (seededRandom(i + 5700) - 0.5) * 0.18;
+    const x = CAVE_ENTRANCE_X + Math.cos(angle + jitter) * CAVE_WIDTH * THREE.MathUtils.lerp(0.78, 1.1, seededRandom(i + 5800));
+    const y = sampleCaveFloor(0) + 1.4 + Math.sin(angle + jitter) * CAVE_HEIGHT * THREE.MathUtils.lerp(0.72, 1.02, seededRandom(i + 5900));
+    const z = CAVE_ENTRANCE_Z + THREE.MathUtils.lerp(-2.8, 3.6, seededRandom(i + 6000));
+    const size = THREE.MathUtils.lerp(2.4, 5.6, seededRandom(i + 6100));
+    const rock = new THREE.Mesh(geometry, material.clone());
+
+    color.set("#262d2d").lerp(new THREE.Color("#5a5e55"), seededRandom(i + 6200) * 0.36);
+    (rock.material as THREE.MeshStandardMaterial).color.copy(color);
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(seededRandom(i + 6300) * Math.PI, seededRandom(i + 6400) * Math.PI, seededRandom(i + 6500) * Math.PI);
+    dummy.scale.set(size * 1.2, size * THREE.MathUtils.lerp(0.76, 1.28, seededRandom(i + 6600)), size);
+    dummy.updateMatrix();
+    rock.applyMatrix4(dummy.matrix);
+    rock.castShadow = true;
+    rock.receiveShadow = true;
+    group.add(rock);
+  }
+
+  for (let i = 0; i < CAVE_COLLIDER_COUNT; i += 1) {
+    const side = i % 2 === 0 ? -1 : 1;
+    const progress = i / CAVE_COLLIDER_COUNT;
+    const centerX = getCaveCenterX(progress);
+    const z = CAVE_ENTRANCE_Z - progress * CAVE_LENGTH;
+    const width = CAVE_WIDTH * THREE.MathUtils.lerp(0.76, 0.56, progress);
+    treeColliders.push({ x: centerX + side * width, z, radius: 1.2 });
+  }
+
+  return group;
 }
 
 function createTerrainGeometry(): THREE.BufferGeometry {
@@ -428,6 +890,9 @@ function createForest(): void {
       x = START_X + away.x * (CLEARING_RADIUS + seededRandom(i + 88) * 18);
       z = START_Z + away.y * (CLEARING_RADIUS + seededRandom(i + 89) * 18);
     }
+    const moved = moveOutOfCaveClearing(x, z, i + 5800);
+    x = moved.x;
+    z = moved.z;
     const ground = sampleHeight(x, z);
     const height = THREE.MathUtils.lerp(16, 34, seededRandom(i + 505));
     const trunkRadius = THREE.MathUtils.lerp(0.75, 1.55, seededRandom(i + 606));
@@ -510,7 +975,7 @@ function createForest(): void {
   for (let i = 0; i < ROCK_COUNT * 2 && rockIndex < ROCK_COUNT; i += 1) {
     const x = (seededRandom(i + 800) - 0.5) * FOREST_SIZE * 0.94;
     const z = (seededRandom(i + 900) - 0.5) * FOREST_SIZE * 0.94;
-    if (Math.hypot(x - START_X, z - START_Z) < CLEARING_RADIUS * 0.7) {
+    if (Math.hypot(x - START_X, z - START_Z) < CLEARING_RADIUS * 0.7 || isInCaveClearing(x, z, 6)) {
       continue;
     }
     const ground = sampleHeight(x, z);
@@ -529,7 +994,7 @@ function createForest(): void {
   for (let i = 0; i < LOG_COUNT * 2 && logIndex < LOG_COUNT; i += 1) {
     const x = (seededRandom(i + 1100) - 0.5) * FOREST_SIZE * 0.8;
     const z = (seededRandom(i + 1200) - 0.5) * FOREST_SIZE * 0.8;
-    if (Math.hypot(x - START_X, z - START_Z) < CLEARING_RADIUS * 0.85) {
+    if (Math.hypot(x - START_X, z - START_Z) < CLEARING_RADIUS * 0.85 || isInCaveClearing(x, z, 10)) {
       continue;
     }
     const ground = sampleHeight(x, z);
@@ -712,14 +1177,30 @@ function resolveTreeCollisions(): void {
 function animate(): void {
   const now = performance.now();
   const delta = Math.min(0.05, (now - previousTime) / 1000);
+  const time = now * 0.001;
   previousTime = now;
 
   updateMovement(delta);
+  updateTorch(time);
   lowMist.children.forEach((mist, index) => {
     mist.rotation.y += delta * THREE.MathUtils.lerp(0.012, 0.03, seededRandom(index + 2100));
   });
   starField.rotation.y += delta * 0.006;
   renderer.render(scene, camera);
+}
+
+function updateTorch(time: number): void {
+  const flicker = 0.72 + Math.sin(time * 19.4) * 0.13 + Math.sin(time * 31.7) * 0.08;
+  torchLight.intensity = THREE.MathUtils.lerp(10.5, 16.2, flicker);
+  torchBeam.intensity = THREE.MathUtils.lerp(7.2, 12.8, flicker);
+  torch.position.y = -1.04 + Math.sin(time * 2.2) * 0.018;
+  torch.rotation.z = -0.24 + Math.sin(time * 3.1) * 0.025;
+
+  torchFlames.forEach((flame, index) => {
+    const scale = 0.9 + Math.sin(time * (16 + index * 3.5)) * 0.12 + Math.sin(time * 27.3 + index) * 0.06;
+    flame.scale.set(1 + (scale - 1) * 0.45, scale, 1 + (scale - 1) * 0.28);
+    flame.rotation.y += 0.035 + index * 0.012;
+  });
 }
 
 resize();
