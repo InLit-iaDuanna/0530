@@ -1,0 +1,92 @@
+.app-shell {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  min-height: 480px;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--surface);
+}
+
+.maze-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  outline: none;
+}
+
+.pointer-lock-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(7, 9, 15, 0.08), rgba(7, 9, 15, 0.36));
+}
+
+.pointer-lock-button {
+  min-width: 7rem;
+  min-height: 2.75rem;
+  padding: 0 var(--space-5);
+  color: var(--surface);
+  background: var(--accent-strong);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0.8rem 2rem var(--shadow);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.pointer-lock-button:hover,
+.pointer-lock-button:focus-visible {
+  outline: 2px solid var(--line-strong);
+  outline-offset: 3px;
+}
+
+.virtual-joystick {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  z-index: 5;
+  width: 7rem;
+  height: 7rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(136, 242, 255, 0.32);
+  border-radius: 50%;
+  background: rgba(8, 12, 19, 0.42);
+  box-shadow: inset 0 0 1.25rem rgba(136, 242, 255, 0.08);
+  touch-action: none;
+}
+
+.virtual-joystick__knob {
+  width: 3rem;
+  height: 3rem;
+  border: 1px solid rgba(255, 211, 122, 0.72);
+  border-radius: 50%;
+  background: rgba(246, 196, 92, 0.24);
+  box-shadow: 0 0 1rem rgba(246, 196, 92, 0.24);
+  will-change: transform;
+}
+
+.touch-look {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  width: 50vw;
+  touch-action: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
