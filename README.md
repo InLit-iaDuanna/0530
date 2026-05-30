@@ -22,3 +22,7 @@ This repository is set up for team collaboration.
 git clone https://github.com/InLit-iaDuanna/0530.git
 cd 0530
 ```
+
+## Demos
+
+- [Night Forest Walk Demo](apps/night-forest-walk/README.md): first-person night forest scene with procedural terrain and dense instanced trees.

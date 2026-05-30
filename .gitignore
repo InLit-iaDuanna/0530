@@ -23,6 +23,7 @@ __pycache__/
 dist/
 build/
 coverage/
+output/
 
 # IDE
 .idea/
