@@ -20,6 +20,9 @@ const CAVE_WIDTH = 18;
 const CAVE_HEIGHT = 16;
 const CAVE_CLEAR_RADIUS = 44;
 const CAVE_COLLIDER_COUNT = 36;
+const CAVE_WALL_DETAIL_COUNT = 150;
+const CAVE_STALACTITE_COUNT = 44;
+const CAVE_FLOOR_STONE_COUNT = 70;
 const PLAYER_RADIUS = 0.72;
 
 type CircleCollider = { x: number; z: number; radius: number };
@@ -573,12 +576,13 @@ function createCaveScene(): THREE.Group {
 
   const entranceRocks = createEntranceRocks();
   group.add(entranceRocks);
+  group.add(createCaveDetailRocks(caveMaterial, floorMaterial));
   return group;
 }
 
 function createCaveTunnelGeometry(): THREE.BufferGeometry {
-  const rings = 42;
-  const segments = 24;
+  const rings = 76;
+  const segments = 44;
   const positions: number[] = [];
   const colors: number[] = [];
   const uvs: number[] = [];
@@ -600,11 +604,18 @@ function createCaveTunnelGeometry(): THREE.BufferGeometry {
       const angle = Math.PI * arch;
       const side = Math.cos(angle);
       const crown = Math.sin(angle);
-      const rough = (fbm(progress * 9.5 + arch * 3.2, arch * 7.8, 4, 93.2) - 0.5) * 1.8;
-      const x = centerX + side * (width + rough * 0.7);
-      const y = floor + Math.max(0.25, crown) * (height + rough) + (1 - crown) * 0.55;
-      const z = centerZ + (fbm(progress * 11, arch * 8, 3, 102.4) - 0.5) * 1.2;
-      const color = baseColor.clone().lerp(highlightColor, crown * 0.32 + seededRandom(r * 71 + s) * 0.18).lerp(warmColor, (1 - progress) * 0.14);
+      const broadRough = fbm(progress * 12.4 + arch * 4.6, arch * 10.2, 4, 93.2) - 0.5;
+      const chipRough = fbm(progress * 36.5, arch * 28.5, 3, 131.8) - 0.5;
+      const seam = Math.abs(fbm(progress * 22.2 + arch * 7.7, arch * 18.4, 2, 159.6) - 0.5);
+      const rough = broadRough * 2.35 + chipRough * 0.82 - seam * 0.72;
+      const x = centerX + side * (width + rough * 0.82);
+      const y = floor + Math.max(0.25, crown) * (height + rough * 1.14) + (1 - crown) * 0.65;
+      const z = centerZ + (fbm(progress * 18.6, arch * 13.5, 3, 102.4) - 0.5) * 1.65;
+      const color = baseColor
+        .clone()
+        .lerp(highlightColor, crown * 0.24 + seededRandom(r * 71 + s) * 0.15)
+        .lerp(warmColor, (1 - progress) * 0.1)
+        .multiplyScalar(THREE.MathUtils.lerp(0.78, 1.12, 1 - seam));
 
       positions.push(x, y, z);
       colors.push(color.r, color.g, color.b);
@@ -634,8 +645,8 @@ function createCaveTunnelGeometry(): THREE.BufferGeometry {
 }
 
 function createCaveFloorGeometry(): THREE.BufferGeometry {
-  const rings = 42;
-  const segments = 8;
+  const rings = 76;
+  const segments = 18;
   const positions: number[] = [];
   const colors: number[] = [];
   const uvs: number[] = [];
@@ -652,11 +663,11 @@ function createCaveFloorGeometry(): THREE.BufferGeometry {
 
     for (let s = 0; s <= segments; s += 1) {
       const across = s / segments - 0.5;
-      const rough = (fbm(progress * 13, across * 9, 4, 119.6) - 0.5) * 0.55;
+      const rough = (fbm(progress * 18, across * 12, 4, 119.6) - 0.5) * 0.82;
       const x = centerX + across * width * 2;
-      const z = centerZ;
-      const y = floor + rough + Math.abs(across) * 0.42;
-      const color = colorA.clone().lerp(colorB, 0.18 + Math.abs(across) * 0.26 + seededRandom(r * 37 + s) * 0.12);
+      const z = centerZ + (fbm(progress * 28, across * 18, 2, 149.2) - 0.5) * 0.52;
+      const y = floor + rough + Math.abs(across) * 0.5;
+      const color = colorA.clone().lerp(colorB, 0.14 + Math.abs(across) * 0.2 + seededRandom(r * 37 + s) * 0.1);
       positions.push(x, y, z);
       colors.push(color.r, color.g, color.b);
       uvs.push(s / segments, progress);
@@ -724,17 +735,143 @@ function createCaveBackWallGeometry(): THREE.BufferGeometry {
   return geometry;
 }
 
+function createCaveDetailRocks(wallMaterial: THREE.Material, floorMaterial: THREE.Material): THREE.Group {
+  const group = new THREE.Group();
+  const dummy = new THREE.Object3D();
+  const color = new THREE.Color();
+
+  const wallRockGeometry = new THREE.DodecahedronGeometry(1, 1);
+  const wallRockMaterial = (wallMaterial as THREE.MeshStandardMaterial).clone();
+  const wallRocks = new THREE.InstancedMesh(wallRockGeometry, wallRockMaterial, CAVE_WALL_DETAIL_COUNT);
+
+  wallRocks.castShadow = true;
+  wallRocks.receiveShadow = true;
+  for (let i = 0; i < CAVE_WALL_DETAIL_COUNT; i += 1) {
+    const progress = THREE.MathUtils.lerp(0.06, 0.97, seededRandom(i + 6800));
+    const arch = THREE.MathUtils.lerp(0.08, 0.92, seededRandom(i + 6900));
+    const angle = Math.PI * arch;
+    const centerX = getCaveCenterX(progress);
+    const centerZ = CAVE_ENTRANCE_Z - progress * CAVE_LENGTH;
+    const floor = sampleCaveFloor(progress);
+    const side = Math.cos(angle);
+    const crown = Math.sin(angle);
+    const width = CAVE_WIDTH * THREE.MathUtils.lerp(1.06, 0.8, progress);
+    const height = CAVE_HEIGHT * THREE.MathUtils.lerp(1.1, 0.82, progress);
+    const jut = THREE.MathUtils.lerp(0.35, 1.15, seededRandom(i + 7000));
+    const x = centerX + side * (width - jut * 0.18);
+    const y = floor + Math.max(0.28, crown) * (height - jut * 0.08) + (1 - crown) * 0.65;
+    const z = centerZ + (seededRandom(i + 7100) - 0.5) * 2.4;
+    const size = THREE.MathUtils.lerp(0.62, 2.15, seededRandom(i + 7200));
+
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(
+      seededRandom(i + 7300) * Math.PI,
+      seededRandom(i + 7400) * Math.PI,
+      seededRandom(i + 7500) * Math.PI
+    );
+    dummy.scale.set(
+      size * THREE.MathUtils.lerp(0.65, 1.2, seededRandom(i + 7600)),
+      size * THREE.MathUtils.lerp(0.42, 0.86, seededRandom(i + 7700)),
+      size * THREE.MathUtils.lerp(0.32, 0.72, seededRandom(i + 7800))
+    );
+    dummy.updateMatrix();
+    wallRocks.setMatrixAt(i, dummy.matrix);
+    color.set("#9a8978").lerp(new THREE.Color("#f0d0a3"), seededRandom(i + 7900) * 0.34);
+    wallRocks.setColorAt(i, color);
+  }
+  wallRocks.instanceMatrix.needsUpdate = true;
+  if (wallRocks.instanceColor) {
+    wallRocks.instanceColor.needsUpdate = true;
+  }
+  group.add(wallRocks);
+
+  const stalactiteGeometry = new THREE.ConeGeometry(0.72, 1, 8, 3);
+  const stalactiteMaterial = (wallMaterial as THREE.MeshStandardMaterial).clone();
+  const stalactites = new THREE.InstancedMesh(stalactiteGeometry, stalactiteMaterial, CAVE_STALACTITE_COUNT);
+
+  stalactites.castShadow = true;
+  stalactites.receiveShadow = true;
+  for (let i = 0; i < CAVE_STALACTITE_COUNT; i += 1) {
+    const progress = THREE.MathUtils.lerp(0.08, 0.95, seededRandom(i + 8000));
+    const arch = THREE.MathUtils.lerp(0.34, 0.66, seededRandom(i + 8100));
+    const angle = Math.PI * arch;
+    const centerX = getCaveCenterX(progress);
+    const centerZ = CAVE_ENTRANCE_Z - progress * CAVE_LENGTH;
+    const floor = sampleCaveFloor(progress);
+    const width = CAVE_WIDTH * THREE.MathUtils.lerp(1.06, 0.8, progress);
+    const height = CAVE_HEIGHT * THREE.MathUtils.lerp(1.1, 0.82, progress);
+    const side = Math.cos(angle);
+    const crown = Math.sin(angle);
+    const length = THREE.MathUtils.lerp(1.4, 4.9, seededRandom(i + 8200));
+
+    dummy.position.set(
+      centerX + side * width * 0.72 + (seededRandom(i + 8300) - 0.5) * 1.2,
+      floor + crown * height - length * 0.48,
+      centerZ + (seededRandom(i + 8400) - 0.5) * 3
+    );
+    dummy.rotation.set(Math.PI, seededRandom(i + 8500) * Math.PI, (seededRandom(i + 8600) - 0.5) * 0.24);
+    dummy.scale.set(
+      THREE.MathUtils.lerp(0.48, 1.08, seededRandom(i + 8700)),
+      length,
+      THREE.MathUtils.lerp(0.48, 1.08, seededRandom(i + 8800))
+    );
+    dummy.updateMatrix();
+    stalactites.setMatrixAt(i, dummy.matrix);
+    color.set("#8d7d6e").lerp(new THREE.Color("#dfc19b"), seededRandom(i + 8900) * 0.38);
+    stalactites.setColorAt(i, color);
+  }
+  stalactites.instanceMatrix.needsUpdate = true;
+  if (stalactites.instanceColor) {
+    stalactites.instanceColor.needsUpdate = true;
+  }
+  group.add(stalactites);
+
+  const floorStoneGeometry = new THREE.DodecahedronGeometry(1, 0);
+  const floorStoneMaterial = (floorMaterial as THREE.MeshStandardMaterial).clone();
+  const floorStones = new THREE.InstancedMesh(floorStoneGeometry, floorStoneMaterial, CAVE_FLOOR_STONE_COUNT);
+
+  floorStones.castShadow = false;
+  floorStones.receiveShadow = true;
+  for (let i = 0; i < CAVE_FLOOR_STONE_COUNT; i += 1) {
+    const progress = THREE.MathUtils.lerp(0.04, 0.98, seededRandom(i + 9000));
+    const centerX = getCaveCenterX(progress);
+    const centerZ = CAVE_ENTRANCE_Z - progress * CAVE_LENGTH;
+    const halfWidth = getCaveWalkableHalfWidth(progress);
+    const offset = (seededRandom(i + 9100) - 0.5) * halfWidth * 1.55;
+    const x = centerX + offset;
+    const z = centerZ + (seededRandom(i + 9200) - 0.5) * 2.3;
+    const floor = sampleCaveFloor(progress);
+    const size = THREE.MathUtils.lerp(0.24, 0.82, seededRandom(i + 9300));
+
+    dummy.position.set(x, floor + size * 0.34, z);
+    dummy.rotation.set(seededRandom(i + 9400) * Math.PI, seededRandom(i + 9500) * Math.PI, seededRandom(i + 9600) * Math.PI);
+    dummy.scale.set(size * THREE.MathUtils.lerp(0.9, 1.8, seededRandom(i + 9700)), size * 0.38, size);
+    dummy.updateMatrix();
+    floorStones.setMatrixAt(i, dummy.matrix);
+    color.set("#856a55").lerp(new THREE.Color("#d19968"), seededRandom(i + 9800) * 0.45);
+    floorStones.setColorAt(i, color);
+  }
+  floorStones.instanceMatrix.needsUpdate = true;
+  if (floorStones.instanceColor) {
+    floorStones.instanceColor.needsUpdate = true;
+  }
+  group.add(floorStones);
+
+  return group;
+}
+
 function createEntranceRocks(): THREE.Group {
   const group = new THREE.Group();
-  const entranceRockTexture = loadCaveTexture("/textures/cave-wall.jpg", 6, 6);
+  const entranceRockTexture = loadCaveTexture("/textures/cave-wall.jpg", 3.5, 3.5);
   const material = new THREE.MeshStandardMaterial({
     color: "#f0dfc8",
-    roughness: 0.98,
+    roughness: 0.88,
+    metalness: 0,
     map: entranceRockTexture,
     bumpMap: entranceRockTexture,
-    bumpScale: 0.12
+    bumpScale: 0.08
   });
-  const geometry = new THREE.DodecahedronGeometry(1, 0);
+  const geometry = new THREE.DodecahedronGeometry(1, 1);
   const color = new THREE.Color();
   const dummy = new THREE.Object3D();
 
@@ -857,11 +994,12 @@ function createTerrainGeometry(): THREE.BufferGeometry {
 function createForest(): void {
   const barkTexture = createBarkTexture();
   const leafTexture = createLeafTexture();
+  const rockTexture = createRockTexture();
   const trunkGeometry = new THREE.CylinderGeometry(0.55, 0.82, 1, 14, 5);
   const branchGeometry = new THREE.CylinderGeometry(0.11, 0.19, 1, 8);
   const coniferGeometry = new THREE.ConeGeometry(1, 1, 16, 2);
   const crownGeometry = new THREE.SphereGeometry(1, 18, 12);
-  const rockGeometry = new THREE.DodecahedronGeometry(1, 0);
+  const rockGeometry = new THREE.DodecahedronGeometry(1, 1);
   const logGeometry = new THREE.CylinderGeometry(0.7, 0.9, 1, 9);
 
   const trunkMaterial = new THREE.MeshStandardMaterial({
@@ -893,9 +1031,13 @@ function createForest(): void {
     map: leafTexture
   });
   const rockMaterial = new THREE.MeshStandardMaterial({
-    color: "#373c39",
-    roughness: 0.98,
-    vertexColors: true
+    color: "#b8bbb0",
+    roughness: 0.9,
+    metalness: 0,
+    vertexColors: true,
+    map: rockTexture,
+    bumpMap: rockTexture,
+    bumpScale: 0.06
   });
 
   const trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, TREE_COUNT);
