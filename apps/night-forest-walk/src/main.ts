@@ -26,8 +26,10 @@ type CircleCollider = { x: number; z: number; radius: number };
 
 const canvas = document.querySelector<HTMLCanvasElement>("#forest-canvas")!;
 const enterButton = document.querySelector<HTMLButtonElement>("#enter-button")!;
+const torchBrightnessInput = document.querySelector<HTMLInputElement>("#torch-brightness")!;
+const torchBrightnessValue = document.querySelector<HTMLOutputElement>("#torch-brightness-value")!;
 
-if (!canvas || !enterButton) {
+if (!canvas || !enterButton || !torchBrightnessInput || !torchBrightnessValue) {
   throw new Error("Night forest failed to initialize.");
 }
 
@@ -61,6 +63,7 @@ let yaw = 0;
 let pitch = 0;
 let walkingActive = false;
 let draggingLook = false;
+let torchBrightness = 1;
 
 const moonLight = new THREE.DirectionalLight("#c9ddff", 2.18);
 moonLight.position.set(-80, 120, -90);
@@ -125,9 +128,17 @@ const cave = createCaveScene();
 scene.add(cave);
 
 createForest();
+setTorchBrightness(Number(torchBrightnessInput.value));
 
 enterButton.addEventListener("click", enterForest);
 canvas.addEventListener("click", enterForest);
+torchBrightnessInput.addEventListener("input", () => {
+  setTorchBrightness(Number(torchBrightnessInput.value));
+});
+
+torchBrightnessInput.addEventListener("pointerdown", (event) => {
+  event.stopPropagation();
+});
 
 canvas.addEventListener("pointerdown", () => {
   draggingLook = walkingActive && document.pointerLockElement !== canvas;
@@ -506,10 +517,10 @@ function createHandTorch(): THREE.Group {
 
 function createCaveScene(): THREE.Group {
   const group = new THREE.Group();
-  const caveWallTexture = loadCaveTexture("/textures/cave-wall.jpg", 8.2, 18.5);
-  const caveFloorTexture = loadCaveTexture("/textures/cave-floor.jpg", 6.2, 20);
+  const caveWallTexture = loadCaveTexture("/textures/cave-wall.jpg", 18, 42);
+  const caveFloorTexture = loadCaveTexture("/textures/cave-floor.jpg", 13, 44);
   const caveMaterial = new THREE.MeshStandardMaterial({
-    color: "#e0d2bd",
+    color: "#ffffff",
     roughness: 0.98,
     metalness: 0.01,
     vertexColors: true,
@@ -519,7 +530,7 @@ function createCaveScene(): THREE.Group {
     side: THREE.DoubleSide
   });
   const floorMaterial = new THREE.MeshStandardMaterial({
-    color: "#d5b38b",
+    color: "#fff2df",
     roughness: 0.99,
     metalness: 0.01,
     vertexColors: true,
@@ -572,9 +583,9 @@ function createCaveTunnelGeometry(): THREE.BufferGeometry {
   const colors: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
-  const baseColor = new THREE.Color("#777068");
-  const highlightColor = new THREE.Color("#b6a184");
-  const warmColor = new THREE.Color("#9b673f");
+  const baseColor = new THREE.Color("#b4aa9a");
+  const highlightColor = new THREE.Color("#fff0ce");
+  const warmColor = new THREE.Color("#d58a55");
 
   for (let r = 0; r <= rings; r += 1) {
     const progress = r / rings;
@@ -629,8 +640,8 @@ function createCaveFloorGeometry(): THREE.BufferGeometry {
   const colors: number[] = [];
   const uvs: number[] = [];
   const indices: number[] = [];
-  const colorA = new THREE.Color("#7a6656");
-  const colorB = new THREE.Color("#b98758");
+  const colorA = new THREE.Color("#c0a386");
+  const colorB = new THREE.Color("#ffd09a");
 
   for (let r = 0; r <= rings; r += 1) {
     const progress = r / rings;
@@ -682,8 +693,8 @@ function createCaveBackWallGeometry(): THREE.BufferGeometry {
   const centerX = getCaveCenterX(1);
   const centerZ = CAVE_ENTRANCE_Z - CAVE_LENGTH - 0.7;
   const floor = sampleCaveFloor(1);
-  const baseColor = new THREE.Color("#5d5349");
-  const topColor = new THREE.Color("#a48c6d");
+  const baseColor = new THREE.Color("#92877c");
+  const topColor = new THREE.Color("#ead4ad");
 
   positions.push(centerX, floor + CAVE_HEIGHT * 0.42, centerZ);
   colors.push(baseColor.r, baseColor.g, baseColor.b);
@@ -715,9 +726,9 @@ function createCaveBackWallGeometry(): THREE.BufferGeometry {
 
 function createEntranceRocks(): THREE.Group {
   const group = new THREE.Group();
-  const entranceRockTexture = loadCaveTexture("/textures/cave-wall.jpg", 1.2, 1.2);
+  const entranceRockTexture = loadCaveTexture("/textures/cave-wall.jpg", 2.4, 2.4);
   const material = new THREE.MeshStandardMaterial({
-    color: "#b9a891",
+    color: "#f0dfc8",
     roughness: 0.98,
     map: entranceRockTexture,
     bumpMap: entranceRockTexture,
@@ -1145,6 +1156,12 @@ function enterForest(): void {
   }
 }
 
+function setTorchBrightness(value: number): void {
+  torchBrightness = THREE.MathUtils.clamp(Number.isFinite(value) ? value : 1, 0.45, 2.2);
+  torchBrightnessInput.value = torchBrightness.toFixed(2);
+  torchBrightnessValue.value = `${Math.round(torchBrightness * 100)}%`;
+}
+
 function isForwardPressed(): boolean {
   return keyState.has("KeyW") || keyState.has("ArrowUp");
 }
@@ -1272,8 +1289,8 @@ function animate(): void {
 
 function updateTorch(time: number): void {
   const flicker = 0.72 + Math.sin(time * 19.4) * 0.13 + Math.sin(time * 31.7) * 0.08;
-  torchLight.intensity = THREE.MathUtils.lerp(14.5, 22.5, flicker);
-  torchBeam.intensity = THREE.MathUtils.lerp(11.5, 20.5, flicker);
+  torchLight.intensity = THREE.MathUtils.lerp(14.5, 22.5, flicker) * torchBrightness;
+  torchBeam.intensity = THREE.MathUtils.lerp(11.5, 20.5, flicker) * torchBrightness;
   torch.position.y = -1.04 + Math.sin(time * 2.2) * 0.018;
   torch.rotation.z = -0.24 + Math.sin(time * 3.1) * 0.025;
 

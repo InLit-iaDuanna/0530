@@ -9,6 +9,20 @@
   <body>
     <div id="app">
       <canvas id="forest-canvas" aria-label="Night forest scene"></canvas>
+      <div class="torch-control">
+        <span class="torch-glyph" aria-hidden="true"></span>
+        <input
+          id="torch-brightness"
+          class="torch-slider"
+          type="range"
+          min="0.45"
+          max="2.2"
+          step="0.05"
+          value="1"
+          aria-label="Torch brightness"
+        />
+        <output id="torch-brightness-value" class="torch-value" for="torch-brightness">100%</output>
+      </div>
       <button id="enter-button" class="enter-button" type="button">Enter cave trail</button>
     </div>
     <script type="module" src="/src/main.ts"></script>
