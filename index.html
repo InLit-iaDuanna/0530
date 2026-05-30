@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#050607" />
+    <title>鬼追人姿态 Demo</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="scene" aria-label="鬼追人第一人称 3D 画面"></canvas>
+      <div id="alertOverlay" class="alert-overlay"></div>
+
+      <section id="startScreen" class="screen screen-active">
+        <div class="panel">
+          <p class="eyebrow">Mobile Web Demo</p>
+          <h1>鬼追人</h1>
+          <p class="intro">
+            竖屏握住手机，现实中踏步来逃跑。转身看向身后，就能看到鬼追上来。
+          </p>
+          <div id="capabilityList" class="capability-list"></div>
+          <button id="startButton" class="primary-button" type="button">开始游戏</button>
+          <button id="desktopButton" class="secondary-button" type="button">桌面测试模式</button>
+        </div>
+      </section>
+
+      <section id="calibrationScreen" class="screen">
+        <div class="panel compact">
+          <p class="eyebrow">Calibration</p>
+          <h2>确认现实中的正前方</h2>
+          <p id="calibrationHelp">站在起点，身体面向你要逃跑的方向，手机平视前方，然后点确认。</p>
+          <div id="forwardStep" class="forward-step">
+            <div class="forward-reticle" aria-hidden="true">
+              <span class="reticle-line horizontal"></span>
+              <span class="reticle-line vertical"></span>
+              <strong>前方</strong>
+            </div>
+            <button id="confirmForwardButton" class="primary-button" type="button">确认当前方向为正前方</button>
+          </div>
+          <div id="manualStep" class="manual-step" hidden>
+            <p class="calibration-note">正前方已确认。如果画面还略偏，可以用下面按钮微调。</p>
+            <div class="manual-calibration" aria-label="手动校准">
+              <button id="manualUpButton" class="calibration-button up" type="button" aria-label="画面向上">↑</button>
+              <button id="manualLeftButton" class="calibration-button left" type="button" aria-label="画面向左">←</button>
+              <div class="calibration-readout">
+                <span>水平 <strong id="manualYawValue">0°</strong></span>
+                <span>俯仰 <strong id="manualPitchValue">0°</strong></span>
+              </div>
+              <button id="manualRightButton" class="calibration-button right" type="button" aria-label="画面向右">→</button>
+              <button id="manualDownButton" class="calibration-button down" type="button" aria-label="画面向下">↓</button>
+            </div>
+            <button id="manualResetButton" class="secondary-button slim" type="button">重置手动微调</button>
+            <div id="countdown" class="countdown countdown-idle">READY</div>
+            <button id="skipCalibrationButton" class="primary-button" type="button">开始追逐</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="gameScreen" class="game-ui" aria-live="polite">
+        <div class="top-bar">
+          <button id="recalibrateButton" class="icon-button" type="button" aria-label="重新校准" title="重新校准">◎</button>
+          <div class="distance-pill">鬼距离 <strong id="distanceValue">30.0</strong>m</div>
+          <button id="pauseButton" class="icon-button" type="button" aria-label="暂停" title="暂停">Ⅱ</button>
+        </div>
+        <div class="stat-row">
+          <span>速度 <strong id="speedValue">0.0</strong> m/s</span>
+          <span>步频 <strong id="cadenceValue">0</strong> 步/分</span>
+          <span>剩余 <strong id="timerValue">90</strong>s</span>
+        </div>
+        <div id="debugPanel" class="debug-panel" hidden></div>
+      </section>
+
+      <section id="pauseScreen" class="screen">
+        <div class="panel compact">
+          <p class="eyebrow">Paused</p>
+          <h2>游戏已暂停</h2>
+          <button id="resumeButton" class="primary-button" type="button">继续游戏</button>
+          <button id="pauseRecalibrateButton" class="secondary-button" type="button">重新校准</button>
+          <button id="muteButton" class="secondary-button" type="button">音效开/关</button>
+          <button id="vibrationButton" class="secondary-button" type="button">震动开/关</button>
+          <button id="quitButton" class="secondary-button" type="button">退出游戏</button>
+        </div>
+      </section>
+
+      <section id="endScreen" class="screen">
+        <div class="panel compact">
+          <p class="eyebrow" id="resultEyebrow">Result</p>
+          <h2 id="resultTitle">游戏结束</h2>
+          <div class="result-grid">
+            <span>存活时间</span><strong id="survivalValue">0s</strong>
+            <span>总步数</span><strong id="stepsValue">0</strong>
+            <span>平均速度</span><strong id="averageSpeedValue">0.0 m/s</strong>
+            <span>最近距离</span><strong id="closestValue">30.0m</strong>
+          </div>
+          <button id="restartButton" class="primary-button" type="button">再玩一次</button>
+          <button id="homeButton" class="secondary-button" type="button">返回首页</button>
+        </div>
+      </section>
+
+      <div id="messageToast" class="message-toast" hidden></div>
+    </main>
+
+    <script type="module" src="./src/game.js"></script>
+  </body>
+</html>
