@@ -17,17 +17,27 @@ export interface FeatureVector {
 }
 
 export interface Classification {
-  readonly label: 'idle' | 'shuffle' | 'step';
+  readonly label: 'smallWalk' | 'other';
   readonly confidence: number;
   readonly nearestDistance: number;
-  readonly source: 'hard-rule' | 'knn' | 'fallback';
+  readonly source: 'imu-rule' | 'knn' | 'healthkit-assisted' | 'fallback';
+  readonly reason?: string;
 }
 
 export interface ClassifiedFrame {
   readonly classification: Classification;
   readonly features: FeatureVector;
-  readonly stableLabel: 'idle' | 'shuffle' | 'step';
+  readonly stableLabel: 'smallWalk' | 'other';
   readonly stableSinceMs: number;
+}
+
+export interface HealthStepDelta {
+  readonly steps: number;
+  readonly available: boolean;
+}
+
+export interface HealthBridge {
+  getStepDelta(startMs: number, endMs: number): Promise<HealthStepDelta>;
 }
 
 export type SensorStatus =

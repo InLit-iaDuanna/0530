@@ -1,8 +1,9 @@
-import { FEATURE_DIM, type Label } from '../lib/constants';
+import { FEATURE_DIM, type CalibrationStepKey, type Label } from '../lib/constants';
 
 export interface CalibrationSample {
   readonly label: Label;
   readonly features: readonly number[];
+  readonly source?: CalibrationStepKey;
 }
 
 export interface NormalizationStats {

@@ -1,6 +1,6 @@
-import { KNN_MIN_CONFIDENCE, STATE_HOLD_MS, type Label } from '../lib/constants';
+import { KNN_MIN_CONFIDENCE, OTHER_HOLD_MS, SMALL_WALK_HOLD_MS, type Label } from '../lib/constants';
 import type { Classification } from '../lib/types';
-import { evaluateHardRules } from './hard-rules';
+import { evaluateImuRules } from './hard-rules';
 import { KnnModel } from './knn';
 
 export interface ClassifyOptions {
@@ -14,9 +14,9 @@ export interface ClassifierState {
 
 export class StatefulClassifier {
   private readonly knn: KnnModel;
-  private candidate: Label = 'idle';
+  private candidate: Label = 'other';
   private candidateSince = 0;
-  private committedLabel: Label = 'idle';
+  private committedLabel: Label = 'other';
   private committedSince = 0;
 
   constructor(knn: KnnModel) {
@@ -27,15 +27,16 @@ export class StatefulClassifier {
     features: readonly number[],
     opts: ClassifyOptions,
   ): { classification: Classification; state: ClassifierState } {
-    const hard = evaluateHardRules(features);
+    const imu = evaluateImuRules(features);
     let classification: Classification;
 
-    if (hard) {
+    if (imu.label === 'smallWalk' || imu.confidence >= 0.8) {
       classification = {
-        label: hard.label,
-        confidence: 1,
+        label: imu.label,
+        confidence: imu.confidence,
         nearestDistance: 0,
-        source: 'hard-rule',
+        source: 'imu-rule',
+        reason: imu.reason,
       };
     } else {
       const knn = this.knn.classify(features);
@@ -45,6 +46,7 @@ export class StatefulClassifier {
           confidence: knn.confidence,
           nearestDistance: knn.nearestDistance,
           source: 'knn',
+          reason: imu.reason,
         };
       } else {
         classification = {
@@ -52,6 +54,7 @@ export class StatefulClassifier {
           confidence: knn?.confidence ?? 0,
           nearestDistance: knn?.nearestDistance ?? 1,
           source: 'fallback',
+          reason: imu.reason,
         };
       }
     }
@@ -67,9 +70,9 @@ export class StatefulClassifier {
   }
 
   reset(now: number): void {
-    this.candidate = 'idle';
+    this.candidate = 'other';
     this.candidateSince = now;
-    this.committedLabel = 'idle';
+    this.committedLabel = 'other';
     this.committedSince = now;
   }
 
@@ -91,7 +94,8 @@ export class StatefulClassifier {
       return;
     }
 
-    if (now - this.candidateSince >= STATE_HOLD_MS) {
+    const holdMs = observed === 'smallWalk' ? SMALL_WALK_HOLD_MS : OTHER_HOLD_MS;
+    if (now - this.candidateSince >= holdMs) {
       this.committedLabel = observed;
       this.committedSince = now;
     }

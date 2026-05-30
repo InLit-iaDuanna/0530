@@ -8,7 +8,7 @@ interface SynthesisOptions {
   gyroAmplitude: number;
   cadenceHz: number;
   jitterFrac: number;
-  spikeShape: 'sine' | 'spike' | 'noise';
+  spikeShape: 'sine' | 'spike' | 'noise' | 'rotate';
 }
 
 const GRAVITY: Vec3 = { x: 0, y: -9.81, z: 0 };
@@ -32,6 +32,8 @@ export const synthesize = (opts: SynthesisOptions): MotionSample[] => {
       const cycle = phase % (2 * Math.PI);
       const pulse = cycle < 0.4 ? Math.sin((cycle / 0.4) * Math.PI) : 0;
       vert = opts.vertAmplitude * pulse;
+    } else if (opts.spikeShape === 'rotate') {
+      vert = opts.vertAmplitude * Math.sin(phase);
     } else {
       vert = opts.vertAmplitude * (Math.random() - 0.5) * 2;
     }
@@ -47,8 +49,14 @@ export const synthesize = (opts: SynthesisOptions): MotionSample[] => {
     };
 
     const gyro: Vec3 = {
-      x: opts.gyroAmplitude * (Math.random() - 0.5),
-      y: opts.gyroAmplitude * (Math.random() - 0.5),
+      x:
+        opts.spikeShape === 'rotate'
+          ? opts.gyroAmplitude * Math.sin(phase * 1.2)
+          : opts.gyroAmplitude * (Math.random() - 0.5),
+      y:
+        opts.spikeShape === 'rotate'
+          ? opts.gyroAmplitude * Math.cos(phase * 0.9)
+          : opts.gyroAmplitude * (Math.random() - 0.5),
       z: opts.gyroAmplitude * (Math.random() - 0.5),
     };
 
@@ -70,26 +78,38 @@ export const idleSamples = (): MotionSample[] =>
     spikeShape: 'noise',
   });
 
-export const shuffleSamples = (): MotionSample[] =>
+export const smallWalkSamples = (): MotionSample[] =>
   synthesize({
     durationMs: 2600,
     sampleRateHz: 50,
-    vertAmplitude: 0.7,
-    horzAmplitude: 1.4,
-    gyroAmplitude: 0.4,
-    cadenceHz: 1.6,
-    jitterFrac: 0.45,
+    vertAmplitude: 0.85,
+    horzAmplitude: 1.55,
+    gyroAmplitude: 8,
+    cadenceHz: 1.8,
+    jitterFrac: 0.08,
     spikeShape: 'sine',
   });
 
-export const stepSamples = (): MotionSample[] =>
+export const handSpoofSamples = (): MotionSample[] =>
   synthesize({
     durationMs: 2600,
     sampleRateHz: 50,
-    vertAmplitude: 5.5,
-    horzAmplitude: 1.0,
-    gyroAmplitude: 1.2,
-    cadenceHz: 2.4,
+    vertAmplitude: 3.3,
+    horzAmplitude: 0.12,
+    gyroAmplitude: 4,
+    cadenceHz: 1.9,
+    jitterFrac: 0.02,
+    spikeShape: 'sine',
+  });
+
+export const rotationSpoofSamples = (): MotionSample[] =>
+  synthesize({
+    durationMs: 2600,
+    sampleRateHz: 50,
+    vertAmplitude: 0.65,
+    horzAmplitude: 0.9,
+    gyroAmplitude: 120,
+    cadenceHz: 1.8,
     jitterFrac: 0.08,
-    spikeShape: 'spike',
+    spikeShape: 'rotate',
   });

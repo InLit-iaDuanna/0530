@@ -30,7 +30,10 @@ export const extract = (window: RingState): readonly number[] => {
 
   const gyroPeak = absMax(gyro);
   const gyroRmsValue = rms(gyro);
+  const gyroAccelRatio = gyroRmsValue / Math.max(rmsVert + rmsHorz, 0.05);
   const spectralEntropy = welchEntropy(aVertCentered);
+  const cadenceDrift = rollingCadenceDrift(aVertCentered, window.durationMs);
+  const gravityJitter = gravityDirectionJitter(window.samples);
 
   const valuesByName: Record<FeatureName, number> = {
     peakVert,
@@ -44,7 +47,9 @@ export const extract = (window: RingState): readonly number[] => {
     vertRatio,
     gyroPeak,
     gyroRms: gyroRmsValue,
+    gyroAccelRatio,
     spectralEntropy,
+    cadenceDrift: Math.max(cadenceDrift, gravityJitter),
   };
 
   return FEATURE_NAMES.map((name) => valuesByName[name]);
@@ -172,4 +177,48 @@ const welchEntropy = (xs: readonly number[]): number => {
 
   const maxEntropy = Math.log2(bins.length);
   return maxEntropy < 1e-6 ? 0 : entropy / maxEntropy;
+};
+
+const rollingCadenceDrift = (xs: readonly number[], durationMs: number): number => {
+  if (xs.length < 32 || durationMs < 1200) {
+    return 0;
+  }
+
+  const mid = Math.floor(xs.length / 2);
+  const first = xs.slice(0, mid);
+  const second = xs.slice(mid);
+  if (first.length < 8 || second.length < 8) {
+    return 0;
+  }
+
+  const halfMs = durationMs / 2;
+  const f1 = dominantFreqHz(first, halfMs);
+  const f2 = dominantFreqHz(second, halfMs);
+  if (f1 === 0 || f2 === 0) {
+    return 0;
+  }
+  return Math.abs(f1 - f2);
+};
+
+const gravityDirectionJitter = (samples: readonly ProjectedSample[]): number => {
+  if (samples.length < 2) {
+    return 0;
+  }
+
+  let maxDelta = 0;
+  for (let i = 1; i < samples.length; i += 1) {
+    const prev = samples[i - 1];
+    const curr = samples[i];
+    if (!prev || !curr) {
+      continue;
+    }
+    const dx = curr.gravityX - prev.gravityX;
+    const dy = curr.gravityY - prev.gravityY;
+    const dz = curr.gravityZ - prev.gravityZ;
+    const delta = Math.hypot(dx, dy, dz);
+    if (delta > maxDelta) {
+      maxDelta = delta;
+    }
+  }
+  return maxDelta;
 };

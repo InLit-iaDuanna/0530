@@ -61,7 +61,7 @@ export class ChartRenderer {
     const yFor = (v: number): number => h / 2 - (v / range) * (h / 2 - 4);
     const xFor = (i: number): number => (i / (this.maxPoints - 1)) * w;
 
-    ctx.strokeStyle = 'oklch(78% 0.12 220)';
+    ctx.strokeStyle = '#67c7e8';
     ctx.lineWidth = 1.6;
     ctx.beginPath();
     this.points.forEach((p, i) => {
@@ -75,7 +75,7 @@ export class ChartRenderer {
     });
     ctx.stroke();
 
-    ctx.fillStyle = 'oklch(70% 0.22 20)';
+    ctx.fillStyle = '#d24960';
     this.points.forEach((p, i) => {
       if (!p.mark) {
         return;

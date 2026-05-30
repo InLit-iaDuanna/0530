@@ -6,6 +6,9 @@ export interface ProjectedSample {
   readonly aVert: number;
   readonly aHorz: number;
   readonly gyroMag: number;
+  readonly gravityX: number;
+  readonly gravityY: number;
+  readonly gravityZ: number;
 }
 
 export interface RingState {
@@ -75,6 +78,13 @@ export const project = (sample: MotionSample): ProjectedSample => {
   });
   const aHorz = magnitude3(horzVec);
   const gyroMag = magnitude3(sample.gyro);
-
-  return { t: sample.t, aVert, aHorz, gyroMag };
+  return {
+    t: sample.t,
+    aVert,
+    aHorz,
+    gyroMag,
+    gravityX: gravityDir.x,
+    gravityY: gravityDir.y,
+    gravityZ: gravityDir.z,
+  };
 };

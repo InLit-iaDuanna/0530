@@ -1,21 +1,23 @@
-import { evaluateHardRules } from './classifier/hard-rules';
+import { evaluateImuRules } from './classifier/hard-rules';
+import { applyHealthAssistance } from './classifier/healthkit';
 import { KnnModel } from './classifier/knn';
 import { StatefulClassifier } from './classifier/state';
 import type { CalibrationSample } from './classifier/normalize';
 import { extract } from './features/extractor';
 import { WindowBuffer, project, type ProjectedSample } from './features/window';
 import {
-  CALIBRATION_DURATION_MS,
-  CALIBRATION_LABELS,
+  CALIBRATION_STEPS,
   FEATURE_NAMES,
-  HARD_RULES,
+  IMU_RULES,
+  KNN_K,
   WINDOW_DURATION_MS,
   type Label,
 } from './lib/constants';
 import { clearCalibration, loadCalibration, saveCalibration } from './lib/storage';
 import type { MotionSample, SensorStatus } from './lib/types';
+import { hasHealthBridge, readHealthStepDelta } from './sensors/health-bridge';
 import { MotionSource } from './sensors/motion-source';
-import { CalibrationController, LABEL_COPY } from './ui/calibration';
+import { CalibrationController, LABEL_COPY, STEP_COPY } from './ui/calibration';
 import { ChartRenderer } from './ui/chart';
 
 interface AppState {
@@ -23,9 +25,11 @@ interface AppState {
   sensor: SensorStatus;
   errorMessage?: string;
   lastFeatures: readonly number[];
-  lastClassification: { label: Label; confidence: number; source: string };
+  lastClassification: { label: Label; confidence: number; source: string; reason?: string };
   stableLabel: Label;
   stableSinceMs: number;
+  healthAvailable: boolean;
+  healthSteps: number;
 }
 
 const root = document.getElementById('app');
@@ -37,9 +41,11 @@ const state: AppState = {
   mode: 'pre-permission',
   sensor: 'idle',
   lastFeatures: new Array<number>(FEATURE_NAMES.length).fill(0),
-  lastClassification: { label: 'idle', confidence: 0, source: 'fallback' },
-  stableLabel: 'idle',
+  lastClassification: { label: 'other', confidence: 0, source: 'fallback' },
+  stableLabel: 'other',
   stableSinceMs: 0,
+  healthAvailable: hasHealthBridge(),
+  healthSteps: 0,
 };
 
 const calibration = new CalibrationController();
@@ -48,14 +54,15 @@ let knn: KnnModel | null = null;
 let classifier: StatefulClassifier | null = null;
 let chart: ChartRenderer | null = null;
 let lastInferenceAt = 0;
+let inferenceSeq = 0;
+const stored = loadCalibration();
 
 const motion = new MotionSource({
   onSample: handleSample,
   onStatus: handleSensorStatus,
 });
 
-const stored = loadCalibration();
-if (stored.length >= CALIBRATION_LABELS.length * 2) {
+if (stored.length >= KNN_K) {
   calibration.load(stored);
   initializeModel(stored);
   state.mode = 'live';
@@ -110,15 +117,7 @@ function handleSample(sample: MotionSample): void {
       const features = extract(buffer.snapshot());
       if (features.some((v) => v !== 0)) {
         state.lastFeatures = features;
-        const result = classifier.classify(features, { now: sample.t });
-        state.lastClassification = {
-          label: result.classification.label,
-          confidence: result.classification.confidence,
-          source: result.classification.source,
-        };
-        state.stableLabel = result.state.stableLabel;
-        state.stableSinceMs = result.state.stableSinceMs;
-        renderLive();
+        void classifyCurrentWindow(features, sample.t);
       }
       lastInferenceAt = sample.t;
     }
@@ -129,8 +128,40 @@ function pushToChart(sample: ProjectedSample): void {
   if (!chart) {
     return;
   }
-  const hardLabel = evaluateHardRules(state.lastFeatures)?.label;
-  chart.push({ t: sample.t, value: sample.aVert, mark: hardLabel === 'step' });
+  const imuLabel = evaluateImuRules(state.lastFeatures).label;
+  chart.push({ t: sample.t, value: sample.aHorz, mark: imuLabel === 'smallWalk' });
+}
+
+async function classifyCurrentWindow(features: readonly number[], sampleTime: number): Promise<void> {
+  if (!classifier) {
+    return;
+  }
+
+  const seq = (inferenceSeq += 1);
+  const result = classifier.classify(features, { now: sampleTime });
+  let classification = result.classification;
+
+  const endMs = Date.now();
+  const health = await readHealthStepDelta(endMs - 6000, endMs);
+  if (seq !== inferenceSeq) {
+    return;
+  }
+
+  classification = applyHealthAssistance(classification, health);
+  state.healthAvailable = health.available;
+  state.healthSteps = health.steps;
+  const nextClassification: AppState['lastClassification'] = {
+    label: classification.label,
+    confidence: classification.confidence,
+    source: classification.source,
+  };
+  if (classification.reason) {
+    nextClassification.reason = classification.reason;
+  }
+  state.lastClassification = nextClassification;
+  state.stableLabel = result.state.stableLabel;
+  state.stableSinceMs = result.state.stableSinceMs;
+  renderLive();
 }
 
 function initializeModel(samples: readonly CalibrationSample[]): void {
@@ -178,17 +209,17 @@ function renderPrePermission(): void {
   screen.className = 'screen calibration-screen';
   screen.innerHTML = `
     <header class="app-header">
-      <h1>踏步 vs 小步识别</h1>
-      <p>用手机加速度 + 陀螺仪，区分原地踏步和小步移动 / 抖手机。</p>
+      <h1>小步走识别</h1>
+      <p>手持手机识别小步走，同时把静止、晃手机和其他动作归为其他。</p>
     </header>
 
     <article class="calibration-step">
       <h2>开始之前</h2>
-      <p class="instruction">点击"开始标定"，授权传感器后做 3 段 5 秒动作（静止 / 小步 / 踏步），系统会学习你这台手机的特征。</p>
+      <p class="instruction">点击"开始标定"，授权传感器后做 3 段动作：静止 5 秒、小步走 8 秒、手动伪造 8 秒。HealthKit 如由 iOS 壳提供，会作为辅助校验。</p>
       <div class="row">
         <button class="button primary" id="btn-start">开始标定</button>
         ${
-          stored.length > 0
+          stored.length >= KNN_K
             ? '<button class="button" id="btn-skip">跳过 (用上次结果)</button>'
             : ''
         }
@@ -229,19 +260,19 @@ function renderCalibrating(): void {
   }
   const calState = calibration.state(performance.now());
 
-  if (calState.phase === 'between' && calState.currentIndex < CALIBRATION_LABELS.length) {
-    const nextLabel = CALIBRATION_LABELS[calState.currentIndex];
-    if (!nextLabel) {
+  if (calState.phase === 'between' && calState.currentIndex < CALIBRATION_STEPS.length) {
+    const nextStep = CALIBRATION_STEPS[calState.currentIndex];
+    if (!nextStep) {
       return;
     }
-    const copy = LABEL_COPY[nextLabel];
+    const copy = STEP_COPY[nextStep.key];
 
     root.innerHTML = '';
     const screen = document.createElement('section');
     screen.className = 'screen calibration-screen';
     screen.innerHTML = `
       <header class="app-header">
-        <h1>第 ${calState.currentIndex + 1} / ${CALIBRATION_LABELS.length} 段</h1>
+        <h1>第 ${calState.currentIndex + 1} / ${CALIBRATION_STEPS.length} 段</h1>
       </header>
       <article class="calibration-step" style="--badge-color:${copy.color}">
         <h2>${escapeHtml(copy.title)}</h2>
@@ -260,9 +291,9 @@ function renderCalibrating(): void {
     return;
   }
 
-  const label = calState.currentLabel ?? 'idle';
-  const copy = LABEL_COPY[label];
-  const fillScale = 1 - calState.remainingMs / CALIBRATION_DURATION_MS;
+  const stepKey = calState.currentStepKey ?? 'still';
+  const copy = STEP_COPY[stepKey];
+  const fillScale = calState.durationMs > 0 ? 1 - calState.remainingMs / calState.durationMs : 0;
   const seconds = Math.ceil(calState.remainingMs / 1000);
 
   root.innerHTML = '';
@@ -270,7 +301,7 @@ function renderCalibrating(): void {
   screen.className = 'screen calibration-screen';
   screen.innerHTML = `
     <header class="app-header">
-      <h1>第 ${calState.currentIndex + 1} / ${CALIBRATION_LABELS.length} 段</h1>
+      <h1>第 ${calState.currentIndex + 1} / ${CALIBRATION_STEPS.length} 段</h1>
     </header>
     <article class="calibration-step" style="--badge-color:${copy.color}">
       <h2>${escapeHtml(copy.title)}</h2>
@@ -317,7 +348,7 @@ function renderLive(): void {
         <span class="meta" data-meta>—</span>
       </article>
       <article class="card">
-        <h3 class="card-title">垂直加速度 (实时)</h3>
+        <h3 class="card-title">水平运动强度 (实时)</h3>
         <div class="chart"><canvas data-canvas></canvas></div>
       </article>
       <article class="card">
@@ -351,7 +382,7 @@ function renderLive(): void {
   const badge = root.querySelector<HTMLElement>('[data-badge]');
   if (badge) {
     badge.style.setProperty('--badge-color', copy.color);
-    if (cls.source === 'hard-rule') {
+    if (cls.label === 'smallWalk') {
       badge.classList.add('flash');
       setTimeout(() => badge.classList.remove('flash'), 200);
     }
@@ -362,11 +393,21 @@ function renderLive(): void {
   setText(
     root,
     '[data-meta]',
-    `稳定 ${stableSec.toFixed(1)}s · KNN置信 ${(cls.confidence * 100).toFixed(0)}%`,
+    `稳定 ${stableSec.toFixed(1)}s · 置信 ${(cls.confidence * 100).toFixed(0)}%`,
   );
   setText(root, '[data-sensor]', `传感器: ${state.sensor}`);
-  setText(root, '[data-source]', `判别源: ${cls.source}`);
-  setText(root, '[data-samples]', `参考样本: ${knn?.size() ?? 0}`);
+  setText(
+    root,
+    '[data-source]',
+    `判别源: ${cls.source}${cls.reason ? ` / ${cls.reason}` : ''}`,
+  );
+  setText(
+    root,
+    '[data-samples]',
+    state.healthAvailable
+      ? `HealthKit: 近6秒 ${state.healthSteps} 步`
+      : `参考样本: ${knn?.size() ?? 0} · HealthKit未接入`,
+  );
 
   const grid = root.querySelector<HTMLElement>('[data-features]');
   if (grid) {
@@ -384,14 +425,14 @@ function renderLive(): void {
 }
 
 function thresholdHit(name: (typeof FEATURE_NAMES)[number], value: number): boolean {
-  if (name === 'peakVert') {
-    return value >= HARD_RULES.stepPeakVertMin;
-  }
-  if (name === 'vertJerkPeak') {
-    return value >= HARD_RULES.stepVertJerkMin;
+  if (name === 'dominantFreqVert') {
+    return value >= IMU_RULES.cadenceMinHz && value <= IMU_RULES.cadenceMaxHz;
   }
   if (name === 'vertRatio') {
-    return value >= HARD_RULES.stepVertRatioMin;
+    return value >= IMU_RULES.smallWalkVertRatioMin && value <= IMU_RULES.smallWalkVertRatioMax;
+  }
+  if (name === 'spectralEntropy') {
+    return value <= IMU_RULES.spectralEntropyMax;
   }
   return false;
 }

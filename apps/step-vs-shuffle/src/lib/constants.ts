@@ -5,22 +5,51 @@ export const WINDOW_SAMPLES = Math.round((WINDOW_DURATION_MS / 1000) * SAMPLE_RA
 
 export const GRAVITY_LP_ALPHA = 0.92;
 
-export const HARD_RULES = {
-  stepPeakVertMin: 2.5,
-  stepVertJerkMin: 30,
-  stepVertRatioMin: 0.9,
-  shuffleRmsMin: 0.18,
-  shufflePeakVertMax: 2.0,
-  idleRmsMax: 0.12,
+export const IMU_RULES = {
+  cadenceMinHz: 1.0,
+  cadenceMaxHz: 2.8,
+  cadenceDriftMaxHz: 0.45,
+  smallWalkPeakVertMin: 0.45,
+  smallWalkPeakVertMax: 2.6,
+  smallWalkRmsMin: 0.22,
+  smallWalkVertRatioMin: 0.08,
+  smallWalkVertRatioMax: 1.4,
+  smallWalkJerkMin: 2.5,
+  smallWalkJerkMax: 32,
+  spectralEntropyMax: 0.72,
+  handGyroPeakMax: 95,
+  handGyroRmsMax: 42,
+  handGyroAccelRatioMax: 42,
+  singleAxisVertRatioMin: 2.2,
+  stillRmsMax: 0.12,
 } as const;
 
 export const KNN_K = 5;
 export const KNN_MIN_CONFIDENCE = 0.55;
-export const STATE_HOLD_MS = 600;
+export const SMALL_WALK_HOLD_MS = 1200;
+export const OTHER_HOLD_MS = 350;
 
-export const CALIBRATION_DURATION_MS = 5000;
-export const CALIBRATION_LABELS = ['idle', 'shuffle', 'step'] as const;
-export type Label = (typeof CALIBRATION_LABELS)[number];
+export const CALIBRATION_STEPS = [
+  {
+    key: 'still',
+    label: 'other',
+    durationMs: 5000,
+  },
+  {
+    key: 'smallWalk',
+    label: 'smallWalk',
+    durationMs: 8000,
+  },
+  {
+    key: 'handSpoof',
+    label: 'other',
+    durationMs: 8000,
+  },
+] as const;
+
+export type CalibrationStepKey = (typeof CALIBRATION_STEPS)[number]['key'];
+export type Label = 'smallWalk' | 'other';
+export const CALIBRATION_LABELS = ['smallWalk', 'other'] as const;
 
 export const FEATURE_NAMES = [
   'peakVert',
@@ -34,7 +63,9 @@ export const FEATURE_NAMES = [
   'vertRatio',
   'gyroPeak',
   'gyroRms',
+  'gyroAccelRatio',
   'spectralEntropy',
+  'cadenceDrift',
 ] as const;
 
 export type FeatureName = (typeof FEATURE_NAMES)[number];

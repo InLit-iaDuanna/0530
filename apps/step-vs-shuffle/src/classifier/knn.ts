@@ -59,7 +59,7 @@ export class KnnModel {
       weights.set(n.label, (weights.get(n.label) ?? 0) + w);
     }
 
-    let bestLabel: Label = 'idle';
+    let bestLabel: Label = 'other';
     let bestWeight = -1;
     let total = 0;
     for (const [label, weight] of weights) {

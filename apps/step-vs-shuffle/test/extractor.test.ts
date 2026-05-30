@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { extract } from '../src/features/extractor';
 import { WindowBuffer } from '../src/features/window';
 import { FEATURE_DIM, FEATURE_NAMES } from '../src/lib/constants';
-import { idleSamples, shuffleSamples, stepSamples } from './fixtures/synth';
+import {
+  handSpoofSamples,
+  idleSamples,
+  rotationSpoofSamples,
+  smallWalkSamples,
+} from './fixtures/synth';
 
 const featuresFor = (samples: ReturnType<typeof idleSamples>): readonly number[] => {
   const buffer = new WindowBuffer(2560);
@@ -19,7 +24,7 @@ const get = (vec: readonly number[], name: (typeof FEATURE_NAMES)[number]): numb
 
 describe('feature extractor', () => {
   it('returns the right dimension', () => {
-    const f = featuresFor(stepSamples());
+    const f = featuresFor(smallWalkSamples());
     expect(f).toHaveLength(FEATURE_DIM);
   });
 
@@ -29,22 +34,23 @@ describe('feature extractor', () => {
     expect(get(f, 'rmsVert')).toBeLessThan(0.2);
   });
 
-  it('shuffle has moderate energy but low vertical impact', () => {
-    const f = featuresFor(shuffleSamples());
-    expect(get(f, 'peakVert')).toBeLessThan(2.0);
-    expect(get(f, 'rmsVert')).toBeGreaterThan(0.18);
-    expect(get(f, 'vertJerkPeak')).toBeLessThan(30);
+  it('small walk has stable cadence and mixed energy', () => {
+    const f = featuresFor(smallWalkSamples());
+    expect(get(f, 'dominantFreqVert')).toBeGreaterThanOrEqual(1.0);
+    expect(get(f, 'dominantFreqVert')).toBeLessThanOrEqual(2.8);
+    expect(get(f, 'rmsHorz')).toBeGreaterThan(0.3);
+    expect(get(f, 'vertRatio')).toBeGreaterThan(0.08);
+    expect(get(f, 'vertRatio')).toBeLessThan(1.4);
   });
 
-  it('step has high peakVert and high vertJerk', () => {
-    const f = featuresFor(stepSamples());
-    expect(get(f, 'peakVert')).toBeGreaterThan(2.5);
-    expect(get(f, 'vertJerkPeak')).toBeGreaterThan(30);
+  it('hand spoof is dominated by one vertical axis', () => {
+    const f = featuresFor(handSpoofSamples());
+    expect(get(f, 'vertRatio')).toBeGreaterThan(2.2);
   });
 
-  it('step is clearly separated from shuffle on peakVert', () => {
-    const fStep = featuresFor(stepSamples());
-    const fShuf = featuresFor(shuffleSamples());
-    expect(get(fStep, 'peakVert')).toBeGreaterThan(get(fShuf, 'peakVert') * 1.5);
+  it('rotation spoof has high gyro acceleration ratio', () => {
+    const f = featuresFor(rotationSpoofSamples());
+    expect(get(f, 'gyroPeak')).toBeGreaterThan(95);
+    expect(get(f, 'gyroAccelRatio')).toBeGreaterThan(42);
   });
 });

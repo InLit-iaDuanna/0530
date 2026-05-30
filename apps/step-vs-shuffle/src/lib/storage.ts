@@ -1,11 +1,14 @@
 import type { CalibrationSample } from '../classifier/normalize';
+import { FEATURE_DIM, type Label } from './constants';
 
-const STORAGE_KEY = 'step-vs-shuffle:calibration:v1';
+const STORAGE_KEY = 'step-vs-shuffle:calibration:v2';
 
 interface StoredCalibration {
-  readonly version: 1;
+  readonly version: 2;
   readonly samples: readonly CalibrationSample[];
 }
+
+const isLabel = (value: unknown): value is Label => value === 'smallWalk' || value === 'other';
 
 export const loadCalibration = (): readonly CalibrationSample[] => {
   if (typeof localStorage === 'undefined') {
@@ -19,10 +22,15 @@ export const loadCalibration = (): readonly CalibrationSample[] => {
 
   try {
     const parsed = JSON.parse(raw) as StoredCalibration;
-    if (parsed.version !== 1 || !Array.isArray(parsed.samples)) {
+    if (parsed.version !== 2 || !Array.isArray(parsed.samples)) {
       return [];
     }
-    return parsed.samples;
+    return parsed.samples.filter(
+      (sample) =>
+        isLabel(sample.label) &&
+        Array.isArray(sample.features) &&
+        sample.features.length === FEATURE_DIM,
+    );
   } catch {
     return [];
   }
@@ -33,7 +41,7 @@ export const saveCalibration = (samples: readonly CalibrationSample[]): void => 
     return;
   }
 
-  const payload: StoredCalibration = { version: 1, samples };
+  const payload: StoredCalibration = { version: 2, samples };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 };
 
