@@ -5,6 +5,7 @@ import { requestWakeLock } from './bootstrap/wake-lock';
 import { ChaseAI } from './game/chase-ai';
 import { ScoreTracker, readBestScore } from './game/score';
 import { StateMachine } from './game/state';
+import { ForwardInput } from './input/forward';
 import { JoystickInput } from './input/joystick';
 import { MotionInput } from './input/motion';
 import { OrientationInput } from './input/orientation';
@@ -78,6 +79,7 @@ const overlay = new Overlay(app, {
 const renderer = new GameRenderer(overlay.sceneHost);
 const orientation = new OrientationInput();
 const motion = new MotionInput();
+const forward = new ForwardInput(overlay.forwardButton);
 const joystick = new JoystickInput(overlay.root, overlay.joystickPad);
 const chase = new ChaseAI();
 const score = new ScoreTracker();
@@ -175,8 +177,8 @@ function tick(now: number): void {
     dt,
     elapsed: elapsedSeconds,
     playerYaw: input.yaw,
+    forwardAxis: input.forwardHeld ? 1 : Math.max(0, input.joystick.y),
     stepCount: input.stepCount,
-    joystickForward: input.joystick.y,
   });
 
   const elapsedMs = score.update(now);
@@ -198,6 +200,7 @@ function tick(now: number): void {
 
 function readInput(now: number): InputFrame {
   const orient = orientation.snapshot();
+  const forwardInput = forward.snapshot();
   const joy = joystick.snapshot();
   const steps = motionAllowed ? motion.consumeSteps() : 0;
   const hasMotion = motionAllowed && motion.hasRecentMotion(now);
@@ -215,14 +218,18 @@ function readInput(now: number): InputFrame {
   const yaw = orient.active ? orient.yaw : fallbackYaw;
   const pitch = orient.active ? orient.pitch : fallbackPitch;
   let source: InputFrame['source'] = 'none';
+  const forwardHeld = forwardInput.held || joy.y > 0.05;
 
-  if (steps > 0 && joy.active) source = 'mixed';
+  if (steps > 0 && (joy.active || forwardHeld)) source = 'mixed';
   else if (steps > 0) source = 'motion';
+  else if (forwardInput.keyboard) source = 'keyboard';
+  else if (forwardHeld) source = 'forward';
   else if (joy.active) source = 'joystick';
 
   return {
     yaw,
     pitch,
+    forwardHeld,
     stepCount: steps,
     joystick: {
       x: joy.x,

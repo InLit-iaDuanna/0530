@@ -23,8 +23,8 @@ export interface ChaseInput {
   dt: number;
   elapsed: number;
   playerYaw: number;
+  forwardAxis: number;
   stepCount: number;
-  joystickForward: number;
 }
 
 export const DEFAULT_CHASE_CONFIG: ChaseConfig = {
@@ -63,10 +63,13 @@ export class ChaseAI {
     );
 
     const stepEscape = input.stepCount * this.config.PLAYER_STEP_GAIN;
-    const joystickEscape =
-      Math.max(0, input.joystickForward) * this.config.JOYSTICK_FORWARD_SPEED * input.dt;
+    const forwardEscape =
+      Math.max(0, input.forwardAxis) *
+      this.config.JOYSTICK_FORWARD_SPEED *
+      input.dt *
+      this.forwardEscapeDirection(input.playerYaw);
 
-    this.distance += stepEscape + joystickEscape - speed * input.dt;
+    this.distance += stepEscape + forwardEscape - speed * input.dt;
     this.distance = Math.max(0, this.distance);
 
     const turnDrift = Math.sin(input.playerYaw - this.azimuth) * 0.35 * input.dt;
@@ -79,6 +82,11 @@ export class ChaseAI {
     const chaserDirection = this.azimuth;
     const angle = Math.abs(Math.atan2(Math.sin(playerYaw - chaserDirection), Math.cos(playerYaw - chaserDirection)));
     return angle < Math.PI / 6;
+  }
+
+  private forwardEscapeDirection(playerYaw: number): number {
+    const angle = Math.atan2(Math.sin(playerYaw - this.azimuth), Math.cos(playerYaw - this.azimuth));
+    return -Math.cos(angle);
   }
 
   private snapshot(speed: number): ChaseSnapshot {

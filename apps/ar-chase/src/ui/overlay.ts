@@ -10,6 +10,7 @@ export class Overlay {
   readonly root: HTMLDivElement;
   readonly sceneHost: HTMLDivElement;
   readonly joystickPad: HTMLDivElement;
+  readonly forwardButton: HTMLButtonElement;
   private readonly panel: HTMLDivElement;
   private readonly hud: HTMLDivElement;
   private readonly timeEl: HTMLDivElement;
@@ -36,6 +37,7 @@ export class Overlay {
         <button class="secondary" type="button">再来一次</button>
       </div>
       <div class="message"></div>
+      <button class="forward" type="button" aria-label="前进">↑</button>
       <div class="joystick" aria-hidden="true"><span></span></div>
     `;
     app.appendChild(this.root);
@@ -47,6 +49,7 @@ export class Overlay {
     this.dangerEl = this.root.querySelector('.danger span')!;
     this.distanceEl = this.root.querySelector('.distance')!;
     this.messageEl = this.root.querySelector('.message')!;
+    this.forwardButton = this.root.querySelector('.forward')!;
     this.joystickPad = this.root.querySelector('.joystick')!;
 
     this.root.querySelector<HTMLButtonElement>('.primary')!.addEventListener('click', actions.onStart);
@@ -57,6 +60,7 @@ export class Overlay {
     this.root.dataset.state = state;
     this.panel.classList.toggle('is-hidden', state === 'playing' || state === 'ready');
     this.hud.classList.toggle('is-visible', state === 'playing');
+    this.root.classList.toggle('show-forward', state === 'playing');
 
     const title = this.panel.querySelector('h1')!;
     const copy = this.panel.querySelector('.copy')!;
