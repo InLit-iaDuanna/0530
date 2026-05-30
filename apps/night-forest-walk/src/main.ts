@@ -20,6 +20,9 @@ const CAVE_WIDTH = 18;
 const CAVE_HEIGHT = 16;
 const CAVE_CLEAR_RADIUS = 44;
 const CAVE_COLLIDER_COUNT = 36;
+const PLAYER_RADIUS = 0.72;
+
+type CircleCollider = { x: number; z: number; radius: number };
 
 const canvas = document.querySelector<HTMLCanvasElement>("#forest-canvas")!;
 const enterButton = document.querySelector<HTMLButtonElement>("#enter-button")!;
@@ -50,7 +53,7 @@ camera.rotation.order = "YXZ";
 scene.add(camera);
 
 const keyState = new Set<string>();
-const treeColliders: Array<{ x: number; z: number; radius: number }> = [];
+const worldColliders: CircleCollider[] = [];
 const torchFlames: THREE.Mesh[] = [];
 let yaw = 0;
 let pitch = 0;
@@ -241,6 +244,10 @@ function sampleCaveFloor(progress: number): number {
   const t = THREE.MathUtils.clamp(progress, 0, 1);
   const entranceHeight = sampleTerrainHeight(CAVE_ENTRANCE_X, CAVE_ENTRANCE_Z);
   return entranceHeight - 1.2 - t * 2.4 + Math.sin(t * Math.PI * 2.1) * 0.45;
+}
+
+function getCaveWalkableHalfWidth(progress: number): number {
+  return CAVE_WIDTH * THREE.MathUtils.lerp(0.72, 0.52, THREE.MathUtils.clamp(progress, 0, 1));
 }
 
 function isInCaveClearing(x: number, z: number, padding = 0): boolean {
@@ -713,6 +720,7 @@ function createEntranceRocks(): THREE.Group {
     rock.castShadow = true;
     rock.receiveShadow = true;
     group.add(rock);
+    worldColliders.push({ x, z, radius: size * 0.62 });
   }
 
   for (let i = 0; i < 18; i += 1) {
@@ -734,6 +742,10 @@ function createEntranceRocks(): THREE.Group {
     rock.castShadow = true;
     rock.receiveShadow = true;
     group.add(rock);
+
+    if (Math.abs(Math.cos(angle + jitter)) > 0.56) {
+      worldColliders.push({ x, z, radius: size * 0.58 });
+    }
   }
 
   for (let i = 0; i < CAVE_COLLIDER_COUNT; i += 1) {
@@ -741,8 +753,8 @@ function createEntranceRocks(): THREE.Group {
     const progress = i / CAVE_COLLIDER_COUNT;
     const centerX = getCaveCenterX(progress);
     const z = CAVE_ENTRANCE_Z - progress * CAVE_LENGTH;
-    const width = CAVE_WIDTH * THREE.MathUtils.lerp(0.76, 0.56, progress);
-    treeColliders.push({ x: centerX + side * width, z, radius: 1.2 });
+    const width = getCaveWalkableHalfWidth(progress) + 1.6;
+    worldColliders.push({ x: centerX + side * width, z, radius: 1.35 });
   }
 
   return group;
@@ -909,7 +921,7 @@ function createForest(): void {
     trunks.setMatrixAt(i, dummy.matrix);
     color.set("#4b3327").lerp(new THREE.Color("#6a4937"), seededRandom(i + 13) * 0.5);
     trunks.setColorAt(i, color);
-    treeColliders.push({ x, z, radius: trunkRadius * 1.25 });
+    worldColliders.push({ x, z, radius: trunkRadius * 1.25 });
 
     const branchesForTree = Math.floor(THREE.MathUtils.lerp(2, 6, seededRandom(i + 33)));
     for (let b = 0; b < branchesForTree && branchIndex < BRANCH_LIMIT; b += 1) {
@@ -988,6 +1000,7 @@ function createForest(): void {
     rocks.setMatrixAt(rockIndex, dummy.matrix);
     color.set("#2c332f").lerp(new THREE.Color("#555b52"), seededRandom(i + 1001) * 0.5);
     rocks.setColorAt(rockIndex, color);
+    worldColliders.push({ x, z, radius: size * 0.76 });
     rockIndex += 1;
   }
 
@@ -1008,6 +1021,13 @@ function createForest(): void {
     logs.setMatrixAt(logIndex, dummy.matrix);
     color.set("#3f2d23").lerp(new THREE.Color("#6b4a36"), seededRandom(i + 1500) * 0.34);
     logs.setColorAt(logIndex, color);
+    for (let s = -1; s <= 1; s += 1) {
+      worldColliders.push({
+        x: x + Math.cos(yaw) * length * 0.23 * s,
+        z: z + Math.sin(yaw) * length * 0.23 * s,
+        radius: 1.08
+      });
+    }
     logIndex += 1;
   }
 
@@ -1144,7 +1164,8 @@ function updateMovement(delta: number): void {
 
   camera.position.x = THREE.MathUtils.clamp(camera.position.x, -FOREST_SIZE * 0.48, FOREST_SIZE * 0.48);
   camera.position.z = THREE.MathUtils.clamp(camera.position.z, -FOREST_SIZE * 0.48, FOREST_SIZE * 0.48);
-  resolveTreeCollisions();
+  resolveWorldCollisions();
+  resolveCaveBounds();
 
   if (isMoving) {
     headBob += delta * (speed === RUN_SPEED ? 11 : 7.2);
@@ -1157,11 +1178,11 @@ function updateMovement(delta: number): void {
   camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetHeight, Math.min(1, delta * 12));
 }
 
-function resolveTreeCollisions(): void {
-  for (const collider of treeColliders) {
+function resolveWorldCollisions(): void {
+  for (const collider of worldColliders) {
     const dx = camera.position.x - collider.x;
     const dz = camera.position.z - collider.z;
-    const minimum = collider.radius + 0.72;
+    const minimum = collider.radius + PLAYER_RADIUS;
     const distanceSq = dx * dx + dz * dz;
 
     if (distanceSq > minimum * minimum || distanceSq < 0.0001) {
@@ -1171,6 +1192,26 @@ function resolveTreeCollisions(): void {
     const distance = Math.sqrt(distanceSq);
     camera.position.x = collider.x + (dx / distance) * minimum;
     camera.position.z = collider.z + (dz / distance) * minimum;
+  }
+}
+
+function resolveCaveBounds(): void {
+  const cave = getCaveLocal(camera.position.x, camera.position.z);
+  if (cave.progress < -0.02 || cave.progress > 1.03) {
+    return;
+  }
+
+  const halfWidth = getCaveWalkableHalfWidth(cave.progress);
+  const offset = camera.position.x - cave.centerX;
+  const maxOffset = halfWidth - PLAYER_RADIUS;
+
+  if (Math.abs(offset) > maxOffset) {
+    camera.position.x = cave.centerX + Math.sign(offset || 1) * maxOffset;
+  }
+
+  const backWallZ = CAVE_ENTRANCE_Z - CAVE_LENGTH + PLAYER_RADIUS * 3.2;
+  if (camera.position.z < backWallZ) {
+    camera.position.z = backWallZ;
   }
 }
 
