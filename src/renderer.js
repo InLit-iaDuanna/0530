@@ -84,6 +84,29 @@ export class GhostRenderer {
     const grassMaterial = new THREE.MeshStandardMaterial({ color: 0x365f39, map: foliageTexture, roughness: 0.98 });
     const paleTrunkMaterial = new THREE.MeshStandardMaterial({ color: 0x89836a, map: barkTexture, roughness: 0.92 });
     const rootMaterial = new THREE.MeshStandardMaterial({ color: 0x382515, map: barkTexture, roughness: 0.98 });
+    const rutMaterial = new THREE.MeshStandardMaterial({
+      color: 0x251b13,
+      map: mudTexture,
+      roughness: 1,
+      transparent: true,
+      opacity: 0.92,
+      side: THREE.DoubleSide,
+    });
+    const wetSoilMaterial = new THREE.MeshStandardMaterial({ color: 0x211811, map: mudTexture, roughness: 0.98 });
+    const mossMaterial = new THREE.MeshStandardMaterial({
+      color: 0x425f31,
+      map: foliageTexture,
+      roughness: 0.98,
+      side: THREE.DoubleSide,
+    });
+    const fernMaterial = new THREE.MeshStandardMaterial({
+      color: 0x3d7042,
+      map: foliageTexture,
+      roughness: 0.96,
+      side: THREE.DoubleSide,
+    });
+    const shrubMaterial = new THREE.MeshStandardMaterial({ color: 0x274c37, map: foliageTexture, roughness: 0.97 });
+    const paleGrassMaterial = new THREE.MeshStandardMaterial({ color: 0x69733f, map: foliageTexture, roughness: 0.98 });
     const leafMaterials = [
       new THREE.MeshStandardMaterial({ color: 0x674121, roughness: 0.98, side: THREE.DoubleSide }),
       new THREE.MeshStandardMaterial({ color: 0x8a5c2e, roughness: 0.98, side: THREE.DoubleSide }),
@@ -117,6 +140,11 @@ export class GhostRenderer {
     const puddleGeometry = new THREE.CircleGeometry(0.5, 24);
     const rootGeometry = new THREE.CylinderGeometry(0.045, 0.075, 2.8, 7);
     const branchGeometry = new THREE.CylinderGeometry(0.05, 0.085, 1.35, 7);
+    const rutGeometry = new THREE.PlaneGeometry(0.42, 3.8, 1, 1);
+    const soilClumpGeometry = new THREE.DodecahedronGeometry(0.2, 0);
+    const stumpGeometry = new THREE.CylinderGeometry(0.28, 0.38, 0.72, 9);
+    const stumpTopGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.035, 9);
+    const logGeometry = new THREE.CylinderGeometry(0.18, 0.25, 2.45, 9);
     const worldStartZ = CONFIG.FOREST_VIEW_MAX_Z - CONFIG.FOREST_WORLD_LENGTH;
     const worldEndZ = CONFIG.FOREST_VIEW_MAX_Z + 36;
     const worldSpan = worldEndZ - worldStartZ;
@@ -176,6 +204,16 @@ export class GhostRenderer {
         canopy.rotation.y = random01(index * 15.6) * Math.PI * 2;
         this.scene.add(canopy);
         this.registerForestItem(canopy, baseZ - 1.8, canopy.position.x, random01(index * 3.4) * Math.PI * 2);
+      }
+
+      for (const side of [-1, 1]) {
+        const rut = new THREE.Mesh(rutGeometry, rutMaterial);
+        rut.rotation.x = -Math.PI / 2;
+        rut.rotation.z = (random01(index * 4.31 + side) - 0.5) * 0.18;
+        rut.position.set(wiggle + side * (0.82 + random01(index * 5.7 + side) * 0.18), 0.055, baseZ - 0.8);
+        rut.scale.set(0.75 + random01(index * 1.9 + side) * 0.45, 0.85 + random01(index * 2.7 + side) * 0.35, 1);
+        this.scene.add(rut);
+        this.registerForestItem(rut, baseZ - 0.8, rut.position.x, rut.rotation.z);
       }
     }
 
@@ -328,6 +366,87 @@ export class GhostRenderer {
       branch.rotation.set(Math.PI / 2, random01(index * 4.2) * 0.35, side * (0.75 + random01(index * 7.8) * 0.8));
       this.scene.add(branch);
       this.registerForestItem(branch, baseZ, branch.position.x);
+    }
+
+    for (let index = 0; index < 145; index += 1) {
+      const baseZ = worldStartZ + random01(index * 14.43) * worldSpan;
+      const x = (random01(index * 3.17) - 0.5) * 4.4;
+      const soil = new THREE.Mesh(soilClumpGeometry, wetSoilMaterial);
+      const scale = 0.35 + random01(index * 5.63) * 0.8;
+      soil.position.set(x, 0.075, baseZ);
+      soil.scale.set(scale * 1.35, 0.18 + scale * 0.24, scale * (0.7 + random01(index * 8.3) * 0.5));
+      soil.rotation.set(random01(index * 2.2) * 0.6, random01(index * 7.4) * Math.PI * 2, random01(index * 9.1) * 0.4);
+      this.scene.add(soil);
+      this.registerForestItem(soil, baseZ, x);
+    }
+
+    for (let index = 0; index < 95; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const baseZ = worldStartZ + random01(index * 21.37) * worldSpan;
+      const x = side * (1.8 + random01(index * 6.4) * 3.2);
+      const fern = createFernCluster(fernMaterial, 0.55 + random01(index * 2.9) * 0.9);
+      fern.position.set(x, 0.08, baseZ);
+      fern.rotation.y = random01(index * 8.8) * Math.PI * 2;
+      this.scene.add(fern);
+      this.registerForestItem(fern, baseZ, x, fern.rotation.y);
+    }
+
+    for (let index = 0; index < 70; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const baseZ = worldStartZ + random01(index * 18.91) * worldSpan;
+      const x = side * (2.7 + random01(index * 3.5) * 5.4);
+      const shrub = createShrubCluster(shrubMaterial, 0.65 + random01(index * 6.2) * 0.95);
+      shrub.position.set(x, 0.28, baseZ);
+      shrub.rotation.y = random01(index * 9.6) * Math.PI * 2;
+      this.scene.add(shrub);
+      this.registerForestItem(shrub, baseZ, x, shrub.rotation.y);
+    }
+
+    for (let index = 0; index < 74; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const baseZ = worldStartZ + random01(index * 16.73) * worldSpan;
+      const x = side * (2.2 + random01(index * 7.1) * 5.8);
+      const mossyRock = createMossyRock(rockMaterial, mossMaterial, 0.55 + random01(index * 4.3) * 1.1);
+      mossyRock.position.set(x, 0.18, baseZ);
+      mossyRock.rotation.y = random01(index * 11.9) * Math.PI * 2;
+      this.scene.add(mossyRock);
+      this.registerForestItem(mossyRock, baseZ, x, mossyRock.rotation.y);
+    }
+
+    for (let index = 0; index < 28; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const baseZ = worldStartZ + random01(index * 25.7) * worldSpan;
+      const x = side * (3.2 + random01(index * 4.8) * 4.8);
+      const stump = createStump(stumpGeometry, stumpTopGeometry, trunkMaterial, mossMaterial);
+      stump.position.set(x, 0, baseZ);
+      stump.rotation.y = random01(index * 13.2) * Math.PI * 2;
+      stump.scale.setScalar(0.75 + random01(index * 6.6) * 1.05);
+      this.scene.add(stump);
+      this.registerForestItem(stump, baseZ, x, stump.rotation.y);
+    }
+
+    for (let index = 0; index < 24; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const baseZ = worldStartZ + random01(index * 28.41) * worldSpan;
+      const x = side * (2.6 + random01(index * 5.3) * 5.6);
+      const log = createFallenLog(logGeometry, rootMaterial, mossMaterial);
+      log.position.set(x, 0.34, baseZ);
+      log.rotation.set(0.18 + random01(index * 4.5) * 0.16, side * (0.9 + random01(index * 8.1) * 0.95), 1.38);
+      log.scale.setScalar(0.8 + random01(index * 9.4) * 0.9);
+      this.scene.add(log);
+      this.registerForestItem(log, baseZ, x, log.rotation.y);
+    }
+
+    for (let index = 0; index < 190; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const baseZ = worldStartZ + random01(index * 11.27) * worldSpan;
+      const x = side * (1.25 + random01(index * 7.8) * 4.1);
+      const grass = new THREE.Mesh(grassGeometry, index % 3 === 0 ? paleGrassMaterial : grassMaterial);
+      grass.position.set(x, 0.22, baseZ);
+      grass.scale.set(0.65 + random01(index * 2.2) * 0.55, 1.2 + random01(index * 3.8) * 1.35, 0.65);
+      grass.rotation.set(0.1, random01(index * 8.4) * Math.PI * 2, side * (0.26 + random01(index * 5.2) * 0.18));
+      this.scene.add(grass);
+      this.registerForestItem(grass, baseZ, x, grass.rotation.y);
     }
 
     for (let index = 0; index < 26; index += 1) {
@@ -719,6 +838,114 @@ function createTracksideTree({ scale, trunkMaterial, foliageMaterial }) {
   tree.add(top);
 
   return tree;
+}
+
+function createFernCluster(material, scale) {
+  const group = new THREE.Group();
+  const bladeGeometry = new THREE.PlaneGeometry(0.16 * scale, 0.72 * scale, 1, 3);
+  const center = new THREE.Mesh(new THREE.ConeGeometry(0.08 * scale, 0.22 * scale, 5), material);
+  center.position.y = 0.11 * scale;
+  group.add(center);
+
+  for (let index = 0; index < 8; index += 1) {
+    const angle = (index / 8) * Math.PI * 2;
+    const blade = new THREE.Mesh(bladeGeometry, material);
+    blade.position.set(Math.sin(angle) * 0.22 * scale, 0.25 * scale, Math.cos(angle) * 0.22 * scale);
+    blade.rotation.order = "YXZ";
+    blade.rotation.y = angle;
+    blade.rotation.x = -0.92 - (index % 2) * 0.18;
+    blade.rotation.z = (index % 3 - 1) * 0.16;
+    blade.scale.y = 0.78 + (index % 4) * 0.09;
+    group.add(blade);
+  }
+
+  return group;
+}
+
+function createShrubCluster(material, scale) {
+  const group = new THREE.Group();
+  const geometry = new THREE.IcosahedronGeometry(0.42 * scale, 0);
+  const offsets = [
+    [0, 0.28, 0, 1.1],
+    [-0.35, 0.22, 0.08, 0.82],
+    [0.34, 0.2, -0.04, 0.9],
+    [0.06, 0.48, -0.2, 0.72],
+    [-0.1, 0.14, 0.32, 0.68],
+  ];
+
+  for (let index = 0; index < offsets.length; index += 1) {
+    const [x, y, z, size] = offsets[index];
+    const clump = new THREE.Mesh(geometry, material);
+    clump.position.set(x * scale, y * scale, z * scale);
+    clump.scale.set(size, size * (0.72 + index * 0.04), size * 0.82);
+    clump.rotation.set(index * 0.24, index * 0.76, index * 0.18);
+    group.add(clump);
+  }
+
+  return group;
+}
+
+function createMossyRock(rockMaterial, mossMaterial, scale) {
+  const group = new THREE.Group();
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42 * scale, 0), rockMaterial);
+  rock.scale.set(1.3, 0.62, 0.92);
+  rock.position.y = 0.2 * scale;
+  group.add(rock);
+
+  const moss = new THREE.Mesh(new THREE.SphereGeometry(0.28 * scale, 8, 5), mossMaterial);
+  moss.position.set(-0.04 * scale, 0.43 * scale, -0.03 * scale);
+  moss.scale.set(1.35, 0.22, 0.9);
+  group.add(moss);
+
+  return group;
+}
+
+function createStump(stumpGeometry, stumpTopGeometry, trunkMaterial, mossMaterial) {
+  const group = new THREE.Group();
+  const stump = new THREE.Mesh(stumpGeometry, trunkMaterial);
+  stump.position.y = 0.36;
+  group.add(stump);
+
+  const top = new THREE.Mesh(stumpTopGeometry, trunkMaterial);
+  top.position.y = 0.735;
+  group.add(top);
+
+  const moss = new THREE.Mesh(new THREE.CircleGeometry(0.22, 12), mossMaterial);
+  moss.rotation.x = -Math.PI / 2;
+  moss.position.set(-0.05, 0.756, 0.03);
+  moss.scale.set(1.18, 0.65, 1);
+  group.add(moss);
+
+  for (let index = 0; index < 4; index += 1) {
+    const root = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.065, 0.74, 6), trunkMaterial);
+    const angle = (index / 4) * Math.PI * 2;
+    root.position.set(Math.sin(angle) * 0.32, 0.1, Math.cos(angle) * 0.32);
+    root.rotation.set(Math.PI / 2, 0, angle);
+    group.add(root);
+  }
+
+  return group;
+}
+
+function createFallenLog(logGeometry, trunkMaterial, mossMaterial) {
+  const group = new THREE.Group();
+  const log = new THREE.Mesh(logGeometry, trunkMaterial);
+  group.add(log);
+
+  const capA = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.03, 9), trunkMaterial);
+  capA.position.y = -1.23;
+  group.add(capA);
+
+  const capB = capA.clone();
+  capB.position.y = 1.23;
+  group.add(capB);
+
+  const moss = new THREE.Mesh(new THREE.PlaneGeometry(0.32, 1.35, 1, 1), mossMaterial);
+  moss.position.set(0, 0.05, 0.22);
+  moss.rotation.x = -0.22;
+  group.add(moss);
+
+  return group;
 }
 
 function createClawedArm(side, skinMaterial, clawMaterial) {
