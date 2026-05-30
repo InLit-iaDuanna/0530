@@ -4,13 +4,14 @@ import { CapsuleCollider, RapierRigidBody, RigidBody } from '@react-three/rapier
 import { Euler, MathUtils, Vector3 } from 'three';
 import { Controls } from '../app/App';
 import { gridToWorld, MazeLayout } from '../maze/layout';
-import { consumeTouchLookDelta, getTouchMove } from './usePlayerInput';
+import { consumeTouchLookDelta, getSensorMoveState, getTouchMove } from './usePlayerInput';
 import { useKeyboardControls } from '../controls/keyboard';
 
 interface PlayerProps {
   readonly layout: MazeLayout;
   readonly resetSignal: number;
   readonly useTouchLook: boolean;
+  readonly useSensorControl: boolean;
   readonly enabled: boolean;
 }
 
@@ -24,6 +25,7 @@ export const Player = ({
   layout,
   resetSignal,
   useTouchLook,
+  useSensorControl,
   enabled,
 }: PlayerProps): JSX.Element => {
   const bodyRef = useRef<RapierRigidBody>(null);
@@ -60,7 +62,13 @@ export const Player = ({
       return;
     }
 
-    if (useTouchLook) {
+    if (useSensorControl) {
+      const sensor = getSensorMoveState();
+      yawRef.current = sensor.yaw;
+      pitchRef.current = sensor.pitch;
+      cameraEuler.set(pitchRef.current, yawRef.current, 0, 'YXZ');
+      camera.quaternion.setFromEuler(cameraEuler);
+    } else if (useTouchLook) {
       const delta = consumeTouchLookDelta();
       yawRef.current -= delta.x * LOOK_SENSITIVITY;
       pitchRef.current = MathUtils.clamp(
@@ -74,10 +82,12 @@ export const Player = ({
 
     const keyboard = getKeyboard();
     const touch = getTouchMove();
+    const sensor = getSensorMoveState();
     const keyboardX = Number(keyboard.right) - Number(keyboard.left);
     const keyboardY = Number(keyboard.forward) - Number(keyboard.backward);
-    const inputX = MathUtils.clamp(keyboardX + touch.x, -1, 1);
-    const inputY = MathUtils.clamp(keyboardY + touch.y, -1, 1);
+    const inputX = useSensorControl ? 0 : MathUtils.clamp(keyboardX + touch.x, -1, 1);
+    const inputY = useSensorControl ? 1 : MathUtils.clamp(keyboardY + touch.y, -1, 1);
+    const moveSpeed = useSensorControl ? sensor.forwardSpeed : MOVE_SPEED;
     const currentVelocity = body.linvel();
 
     camera.getWorldDirection(forward);
@@ -96,9 +106,9 @@ export const Player = ({
     if (enabled) {
       body.setLinvel(
         {
-          x: movement.x * MOVE_SPEED,
+          x: movement.x * moveSpeed,
           y: currentVelocity.y,
-          z: movement.z * MOVE_SPEED,
+          z: movement.z * moveSpeed,
         },
         true,
       );

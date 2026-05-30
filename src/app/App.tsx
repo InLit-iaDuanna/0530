@@ -4,11 +4,22 @@ import { Physics } from '@react-three/rapier';
 import { MazeScene } from '../maze/MazeScene';
 import { mazeLayout } from '../maze/layout';
 import { Player } from '../player/Player';
-import { resetTouchInput } from '../player/usePlayerInput';
+import {
+  getSensorMoveState,
+  resetSensorInput,
+  resetTouchInput,
+  SensorControlStatus,
+} from '../player/usePlayerInput';
 import { VirtualJoystick } from '../controls/VirtualJoystick';
 import { TouchLook } from '../controls/TouchLook';
 import { KeyboardControls, KeyboardControlsEntry } from '../controls/keyboard';
 import { Hud } from '../hud/Hud';
+import {
+  refreshSensorControls,
+  requestSensorControls,
+  resetSensorCalibration,
+  resetSensorRuntime,
+} from '../sensors/mobileSensors';
 
 export enum Controls {
   Forward = 'forward',
@@ -53,7 +64,10 @@ export const App = (): JSX.Element => {
   const [gameState, setGameState] = useState<GameState>(() => createPlayingState());
   const [resetSignal, setResetSignal] = useState(0);
   const [pointerLocked, setPointerLocked] = useState(false);
+  const [sensorStatus, setSensorStatus] = useState<SensorControlStatus>('idle');
+  const [sensorHud, setSensorHud] = useState({ cadenceSpm: 0, forwardSpeed: 0 });
   const isCoarsePointer = useCoarsePointer();
+  const useSensorMode = isCoarsePointer;
 
   const keyboardMap = useMemo<KeyboardControlsEntry<Controls>[]>(
     () => [
@@ -67,10 +81,45 @@ export const App = (): JSX.Element => {
 
   const restart = useCallback(() => {
     resetTouchInput();
+    resetSensorRuntime();
+    if (!useSensorMode) {
+      resetSensorInput();
+    }
     setPointerLocked(false);
     setResetSignal((current) => current + 1);
     setGameState(createPlayingState());
+  }, [useSensorMode]);
+
+  const enableSensors = useCallback(async () => {
+    const nextStatus = await requestSensorControls();
+    setSensorStatus(nextStatus);
+
+    if (nextStatus === 'active') {
+      resetSensorCalibration();
+    }
   }, []);
+
+  const recalibrateSensors = useCallback(() => {
+    resetSensorCalibration();
+  }, []);
+
+  useEffect(() => {
+    if (!useSensorMode) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      refreshSensorControls();
+      const sensor = getSensorMoveState();
+      setSensorStatus(sensor.status);
+      setSensorHud({
+        cadenceSpm: sensor.cadenceSpm,
+        forwardSpeed: sensor.forwardSpeed,
+      });
+    }, 120);
+
+    return () => window.clearInterval(timer);
+  }, [useSensorMode]);
 
   const completeMaze = useCallback(() => {
     setGameState((current) => {
@@ -111,14 +160,24 @@ export const App = (): JSX.Element => {
               <Player
                 layout={mazeLayout}
                 resetSignal={resetSignal}
-                useTouchLook={isCoarsePointer}
+                useTouchLook={isCoarsePointer && !useSensorMode}
+                useSensorControl={useSensorMode && sensorStatus === 'active'}
                 enabled={gameState.kind === 'playing'}
               />
             </Physics>
           </Suspense>
         </Canvas>
-        <Hud gameState={gameState} onRestart={restart} />
-        {isCoarsePointer && gameState.kind === 'playing' ? (
+        <Hud
+          gameState={gameState}
+          onRestart={restart}
+          isSensorMode={useSensorMode}
+          sensorStatus={sensorStatus}
+          cadenceSpm={sensorHud.cadenceSpm}
+          forwardSpeed={sensorHud.forwardSpeed}
+          onEnableSensors={enableSensors}
+          onRecalibrateSensors={recalibrateSensors}
+        />
+        {isCoarsePointer && !useSensorMode && gameState.kind === 'playing' ? (
           <>
             <VirtualJoystick />
             <TouchLook />
