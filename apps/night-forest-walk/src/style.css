@@ -1,0 +1,128 @@
+:root {
+  color: #eef5f7;
+  background: #05090d;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: #05090d;
+}
+
+button {
+  font: inherit;
+}
+
+input,
+output {
+  font: inherit;
+}
+
+#app {
+  position: relative;
+  min-width: 320px;
+}
+
+#forest-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+.enter-button {
+  position: absolute;
+  left: 50%;
+  bottom: 34px;
+  z-index: 2;
+  min-width: 142px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid rgb(234 246 241 / 24%);
+  border-radius: 8px;
+  color: #eef5f7;
+  background: rgb(9 15 18 / 72%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 36%);
+  backdrop-filter: blur(14px);
+  cursor: pointer;
+  font-size: 0.92rem;
+  font-weight: 730;
+  transform: translateX(-50%);
+}
+
+.enter-button:hover {
+  background: rgb(24 39 43 / 76%);
+}
+
+.enter-button:focus-visible {
+  outline: 2px solid #d8e7ff;
+  outline-offset: 3px;
+}
+
+.enter-button[hidden] {
+  display: none;
+}
+
+.torch-control {
+  position: absolute;
+  right: 20px;
+  bottom: 24px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(280px, calc(100vw - 40px));
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgb(255 214 157 / 24%);
+  border-radius: 8px;
+  background: rgb(9 12 12 / 72%);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 34%);
+  backdrop-filter: blur(14px);
+}
+
+.torch-glyph {
+  width: 13px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 50% 50% 48% 48%;
+  background:
+    radial-gradient(circle at 50% 68%, #fff1b8 0 18%, transparent 19%),
+    linear-gradient(180deg, #ffbe54 0%, #ff7d25 66%, #562013 100%);
+  box-shadow: 0 0 16px rgb(255 139 44 / 58%);
+}
+
+.torch-slider {
+  width: 100%;
+  min-width: 0;
+  accent-color: #ffb35c;
+  cursor: pointer;
+}
+
+.torch-value {
+  flex: 0 0 42px;
+  color: #ffe3bd;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
