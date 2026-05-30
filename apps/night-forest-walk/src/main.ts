@@ -108,13 +108,16 @@ camera.add(torch);
 const terrain = new THREE.Mesh(
   createTerrainGeometry(),
   new THREE.MeshStandardMaterial({
-    color: "#cad6b8",
-    roughness: 0.96,
-    metalness: 0.02,
+    color: "#b2aa94",
+    roughness: 0.94,
+    metalness: 0,
     vertexColors: true,
-    map: loadRepeatingTexture("/textures/asset-pack/forest-ground.png", 52, 52),
-    bumpMap: loadRepeatingTexture("/textures/asset-pack/forest-ground.png", 52, 52),
-    bumpScale: 0.055
+    map: loadRepeatingTexture("/textures/pbr/ground-soil-color.jpg", 86, 86),
+    normalMap: loadRepeatingDataTexture("/textures/pbr/ground-soil-normal.jpg", 86, 86),
+    normalScale: new THREE.Vector2(0.34, 0.34),
+    roughnessMap: loadRepeatingDataTexture("/textures/pbr/ground-soil-roughness.jpg", 86, 86),
+    aoMap: loadRepeatingDataTexture("/textures/pbr/ground-soil-ao.jpg", 86, 86),
+    aoMapIntensity: 0.62
   })
 );
 terrain.receiveShadow = true;
@@ -464,8 +467,32 @@ function loadRepeatingTexture(path: string, repeatX: number, repeatY: number): T
   return texture;
 }
 
+function loadDataTexture(path: string): THREE.Texture {
+  const texture = textureLoader.load(path);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
+function loadRepeatingDataTexture(path: string, repeatX: number, repeatY: number): THREE.Texture {
+  const texture = loadDataTexture(path);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeatX, repeatY);
+  texture.anisotropy = 8;
+  return texture;
+}
+
 function loadCaveTexture(path: string, repeatX: number, repeatY: number): THREE.Texture {
   return loadRepeatingTexture(path, repeatX, repeatY);
+}
+
+function copyUvToAoUv(geometry: THREE.BufferGeometry): THREE.BufferGeometry {
+  const uv = geometry.getAttribute("uv");
+  if (uv) {
+    geometry.setAttribute("uv2", uv.clone());
+  }
+  return geometry;
 }
 
 function createHandTorch(): THREE.Group {
@@ -543,57 +570,79 @@ function createHandTorch(): THREE.Group {
 
 function createCaveScene(): THREE.Group {
   const group = new THREE.Group();
-  const caveWallTexture = loadCaveTexture("/textures/asset-pack/cave-wall-1.png", 45, 105);
-  const caveDetailTexture = loadCaveTexture("/textures/asset-pack/cave-wall-2.png", 12, 12);
-  const caveBackTexture = loadCaveTexture("/textures/asset-pack/cave-wall-3.png", 6, 6);
-  const caveFloorTexture = loadCaveTexture("/textures/asset-pack/cave-floor-dark.png", 32, 110);
-  const caveFloorStoneTexture = loadCaveTexture("/textures/asset-pack/cave-floor-light.png", 8, 8);
+  const caveWallTexture = loadCaveTexture("/textures/pbr/cave-rock-color.jpg", 18, 42);
+  const caveWallNormalTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-normal.jpg", 18, 42);
+  const caveWallRoughnessTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-roughness.jpg", 18, 42);
+  const caveWallAoTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-ao.jpg", 18, 42);
+  const caveDetailTexture = loadCaveTexture("/textures/pbr/cave-rock-color.jpg", 7, 7);
+  const caveDetailNormalTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-normal.jpg", 7, 7);
+  const caveDetailRoughnessTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-roughness.jpg", 7, 7);
+  const caveDetailAoTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-ao.jpg", 7, 7);
+  const caveFloorTexture = loadCaveTexture("/textures/pbr/ground-soil-color.jpg", 24, 84);
+  const caveFloorNormalTexture = loadRepeatingDataTexture("/textures/pbr/ground-soil-normal.jpg", 24, 84);
+  const caveFloorRoughnessTexture = loadRepeatingDataTexture("/textures/pbr/ground-soil-roughness.jpg", 24, 84);
+  const caveFloorAoTexture = loadRepeatingDataTexture("/textures/pbr/ground-soil-ao.jpg", 24, 84);
   const caveMaterial = new THREE.MeshStandardMaterial({
-    color: "#ffffff",
-    roughness: 0.98,
-    metalness: 0.01,
+    color: "#b7aaa0",
+    roughness: 0.97,
+    metalness: 0,
     vertexColors: true,
     map: caveWallTexture,
-    bumpMap: caveWallTexture,
-    bumpScale: 0.13,
+    normalMap: caveWallNormalTexture,
+    normalScale: new THREE.Vector2(0.42, 0.42),
+    roughnessMap: caveWallRoughnessTexture,
+    aoMap: caveWallAoTexture,
+    aoMapIntensity: 0.58,
     side: THREE.DoubleSide
   });
   const caveDetailMaterial = new THREE.MeshStandardMaterial({
-    color: "#fff4dd",
+    color: "#a99a8c",
     roughness: 0.96,
-    metalness: 0.01,
+    metalness: 0,
     vertexColors: true,
     map: caveDetailTexture,
-    bumpMap: caveDetailTexture,
-    bumpScale: 0.11
+    normalMap: caveDetailNormalTexture,
+    normalScale: new THREE.Vector2(0.5, 0.5),
+    roughnessMap: caveDetailRoughnessTexture,
+    aoMap: caveDetailAoTexture,
+    aoMapIntensity: 0.64
   });
   const caveBackMaterial = new THREE.MeshStandardMaterial({
-    color: "#fff4dc",
+    color: "#92877d",
     roughness: 0.98,
-    metalness: 0.01,
+    metalness: 0,
     vertexColors: true,
-    map: caveBackTexture,
-    bumpMap: caveBackTexture,
-    bumpScale: 0.1,
+    map: caveWallTexture,
+    normalMap: caveWallNormalTexture,
+    normalScale: new THREE.Vector2(0.36, 0.36),
+    roughnessMap: caveWallRoughnessTexture,
+    aoMap: caveWallAoTexture,
+    aoMapIntensity: 0.54,
     side: THREE.DoubleSide
   });
   const floorMaterial = new THREE.MeshStandardMaterial({
-    color: "#fff2df",
-    roughness: 0.99,
-    metalness: 0.01,
+    color: "#b2a18e",
+    roughness: 0.96,
+    metalness: 0,
     vertexColors: true,
     map: caveFloorTexture,
-    bumpMap: caveFloorTexture,
-    bumpScale: 0.075
+    normalMap: caveFloorNormalTexture,
+    normalScale: new THREE.Vector2(0.36, 0.36),
+    roughnessMap: caveFloorRoughnessTexture,
+    aoMap: caveFloorAoTexture,
+    aoMapIntensity: 0.62
   });
   const floorStoneMaterial = new THREE.MeshStandardMaterial({
-    color: "#fff0d1",
-    roughness: 0.97,
-    metalness: 0.01,
+    color: "#a68f78",
+    roughness: 0.93,
+    metalness: 0,
     vertexColors: true,
-    map: caveFloorStoneTexture,
-    bumpMap: caveFloorStoneTexture,
-    bumpScale: 0.06
+    map: caveFloorTexture,
+    normalMap: caveFloorNormalTexture,
+    normalScale: new THREE.Vector2(0.42, 0.42),
+    roughnessMap: caveFloorRoughnessTexture,
+    aoMap: caveFloorAoTexture,
+    aoMapIntensity: 0.68
   });
   const darkMouthMaterial = new THREE.MeshBasicMaterial({
     color: "#030506",
@@ -693,6 +742,7 @@ function createCaveTunnelGeometry(): THREE.BufferGeometry {
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  copyUvToAoUv(geometry);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   return geometry;
@@ -744,6 +794,7 @@ function createCaveFloorGeometry(): THREE.BufferGeometry {
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  copyUvToAoUv(geometry);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   return geometry;
@@ -784,6 +835,7 @@ function createCaveBackWallGeometry(): THREE.BufferGeometry {
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  copyUvToAoUv(geometry);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   return geometry;
@@ -916,16 +968,22 @@ function createCaveDetailRocks(wallMaterial: THREE.Material, floorMaterial: THRE
 
 function createEntranceRocks(): THREE.Group {
   const group = new THREE.Group();
-  const entranceRockTexture = loadCaveTexture("/textures/asset-pack/cave-wall-3.png", 3.5, 3.5);
+  const entranceRockTexture = loadCaveTexture("/textures/pbr/cave-rock-color.jpg", 4.5, 4.5);
+  const entranceRockNormalTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-normal.jpg", 4.5, 4.5);
+  const entranceRockRoughnessTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-roughness.jpg", 4.5, 4.5);
+  const entranceRockAoTexture = loadRepeatingDataTexture("/textures/pbr/cave-rock-ao.jpg", 4.5, 4.5);
   const material = new THREE.MeshStandardMaterial({
-    color: "#f0dfc8",
-    roughness: 0.88,
+    color: "#9f9489",
+    roughness: 0.98,
     metalness: 0,
     map: entranceRockTexture,
-    bumpMap: entranceRockTexture,
-    bumpScale: 0.08
+    normalMap: entranceRockNormalTexture,
+    normalScale: new THREE.Vector2(0.36, 0.36),
+    roughnessMap: entranceRockRoughnessTexture,
+    aoMap: entranceRockAoTexture,
+    aoMapIntensity: 0.5
   });
-  const geometry = new THREE.DodecahedronGeometry(1, 1);
+  const geometry = copyUvToAoUv(new THREE.DodecahedronGeometry(1, 1));
   const color = new THREE.Color();
   const dummy = new THREE.Object3D();
 
@@ -1043,6 +1101,7 @@ function createTerrainGeometry(): THREE.BufferGeometry {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
   geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  copyUvToAoUv(geometry);
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
 
