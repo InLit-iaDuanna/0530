@@ -5,6 +5,7 @@
 .env
 .env.*
 !.env.example
+certs/
 
 # Logs
 *.log
@@ -23,6 +24,7 @@ __pycache__/
 dist/
 build/
 coverage/
+.cache/
 
 # IDE
 .idea/
