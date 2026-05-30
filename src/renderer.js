@@ -58,19 +58,45 @@ export class GhostRenderer {
   }
 
   addForestPath() {
-    const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x182319, roughness: 0.98, metalness: 0.01 });
-    const slopeMaterial = new THREE.MeshStandardMaterial({ color: 0x1c2c1a, roughness: 0.98 });
-    const pathMaterial = new THREE.MeshStandardMaterial({ color: 0x3b2d1e, roughness: 1 });
-    const pathStripeMaterial = new THREE.MeshStandardMaterial({ color: 0x5a4028, roughness: 1 });
-    const pathEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0x24301f, roughness: 1 });
-    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x3c2b1d, roughness: 0.9 });
-    const foliageMaterial = new THREE.MeshStandardMaterial({ color: 0x24513d, roughness: 0.92 });
-    const darkFoliageMaterial = new THREE.MeshStandardMaterial({ color: 0x1a342b, roughness: 0.96 });
-    const farFoliageMaterial = new THREE.MeshStandardMaterial({ color: 0x173025, roughness: 1 });
-    const canopyMaterial = new THREE.MeshStandardMaterial({ color: 0x1b3a2c, roughness: 1 });
-    const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x3c4240, roughness: 0.95 });
-    const grassMaterial = new THREE.MeshStandardMaterial({ color: 0x2f5131, roughness: 0.98 });
-    const paleTrunkMaterial = new THREE.MeshStandardMaterial({ color: 0x85826b, roughness: 0.9 });
+    const forestFloorTexture = createForestFloorTexture();
+    const mudTexture = createMudTexture();
+    const barkTexture = createBarkTexture();
+    const foliageTexture = createFoliageTexture();
+    const darkFoliageTexture = createFoliageTexture(0.62);
+    const rockTexture = createRockTexture();
+
+    const groundMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1b261c,
+      map: forestFloorTexture,
+      roughness: 0.99,
+      metalness: 0.01,
+    });
+    const slopeMaterial = new THREE.MeshStandardMaterial({ color: 0x20311e, map: forestFloorTexture, roughness: 0.99 });
+    const pathMaterial = new THREE.MeshStandardMaterial({ color: 0x4b3827, map: mudTexture, roughness: 1 });
+    const pathStripeMaterial = new THREE.MeshStandardMaterial({ color: 0x705136, map: mudTexture, roughness: 1 });
+    const pathEdgeMaterial = new THREE.MeshStandardMaterial({ color: 0x2a3823, map: forestFloorTexture, roughness: 1 });
+    const trunkMaterial = new THREE.MeshStandardMaterial({ color: 0x4b3524, map: barkTexture, roughness: 0.94 });
+    const foliageMaterial = new THREE.MeshStandardMaterial({ color: 0x2e6249, map: foliageTexture, roughness: 0.95 });
+    const darkFoliageMaterial = new THREE.MeshStandardMaterial({ color: 0x1d3b30, map: darkFoliageTexture, roughness: 0.98 });
+    const farFoliageMaterial = new THREE.MeshStandardMaterial({ color: 0x183428, map: darkFoliageTexture, roughness: 1 });
+    const canopyMaterial = new THREE.MeshStandardMaterial({ color: 0x244835, map: foliageTexture, roughness: 1 });
+    const rockMaterial = new THREE.MeshStandardMaterial({ color: 0x505753, map: rockTexture, roughness: 0.96 });
+    const grassMaterial = new THREE.MeshStandardMaterial({ color: 0x365f39, map: foliageTexture, roughness: 0.98 });
+    const paleTrunkMaterial = new THREE.MeshStandardMaterial({ color: 0x89836a, map: barkTexture, roughness: 0.92 });
+    const rootMaterial = new THREE.MeshStandardMaterial({ color: 0x382515, map: barkTexture, roughness: 0.98 });
+    const leafMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0x674121, roughness: 0.98, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({ color: 0x8a5c2e, roughness: 0.98, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({ color: 0x4d3c20, roughness: 0.98, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({ color: 0x6f6a32, roughness: 0.98, side: THREE.DoubleSide }),
+    ];
+    const puddleMaterial = new THREE.MeshStandardMaterial({
+      color: 0x263a32,
+      roughness: 0.16,
+      metalness: 0.03,
+      transparent: true,
+      opacity: 0.6,
+    });
     const mistMaterial = new THREE.MeshBasicMaterial({
       color: 0xc7d4cc,
       transparent: true,
@@ -86,6 +112,11 @@ export class GhostRenderer {
     const edgeGeometry = new THREE.PlaneGeometry(2.4, 12, 1, 1);
     const mistGeometry = new THREE.PlaneGeometry(28, 3.4, 1, 1);
     const grassGeometry = new THREE.ConeGeometry(0.14, 0.58, 5);
+    const pebbleGeometry = new THREE.DodecahedronGeometry(0.11, 0);
+    const leafGeometry = new THREE.CircleGeometry(0.08, 6);
+    const puddleGeometry = new THREE.CircleGeometry(0.5, 24);
+    const rootGeometry = new THREE.CylinderGeometry(0.045, 0.075, 2.8, 7);
+    const branchGeometry = new THREE.CylinderGeometry(0.05, 0.085, 1.35, 7);
     const worldStartZ = CONFIG.FOREST_VIEW_MAX_Z - CONFIG.FOREST_WORLD_LENGTH;
     const worldEndZ = CONFIG.FOREST_VIEW_MAX_Z + 36;
     const worldSpan = worldEndZ - worldStartZ;
@@ -235,6 +266,68 @@ export class GhostRenderer {
       rock.rotation.set(random01(index * 2) * 0.8, random01(index * 3) * 3, random01(index * 4) * 0.6);
       this.scene.add(rock);
       this.registerForestItem(rock, baseZ, x);
+    }
+
+    for (let index = 0; index < 170; index += 1) {
+      const side = index % 2 === 0 ? -1 : 1;
+      const baseZ = worldStartZ + random01(index * 4.49) * worldSpan;
+      const x = side * (0.55 + random01(index * 8.77) * 2.45);
+      const pebble = new THREE.Mesh(pebbleGeometry, rockMaterial);
+      const scale = 0.38 + random01(index * 3.9) * 0.95;
+      pebble.position.set(x, 0.08, baseZ);
+      pebble.scale.set(scale, 0.35 + scale * 0.45, scale * (0.6 + random01(index * 5.1) * 0.8));
+      pebble.rotation.set(
+        random01(index * 2.1) * Math.PI,
+        random01(index * 3.6) * Math.PI,
+        random01(index * 4.8) * Math.PI
+      );
+      this.scene.add(pebble);
+      this.registerForestItem(pebble, baseZ, x);
+    }
+
+    for (let index = 0; index < 260; index += 1) {
+      const baseZ = worldStartZ + random01(index * 6.31) * worldSpan;
+      const x = (random01(index * 2.71) - 0.5) * 5.4;
+      const material = leafMaterials[index % leafMaterials.length];
+      const leaf = new THREE.Mesh(leafGeometry, material);
+      leaf.position.set(x, 0.052, baseZ);
+      leaf.scale.set(0.55 + random01(index * 5.4) * 1.2, 0.28 + random01(index * 9.1) * 0.55, 1);
+      leaf.rotation.set(-Math.PI / 2, 0, random01(index * 11.6) * Math.PI * 2);
+      this.scene.add(leaf);
+      this.registerForestItem(leaf, baseZ, x);
+    }
+
+    for (let index = 0; index < 42; index += 1) {
+      const baseZ = worldStartZ + random01(index * 13.7) * worldSpan;
+      const side = index % 2 === 0 ? -1 : 1;
+      const root = new THREE.Mesh(rootGeometry, rootMaterial);
+      root.position.set(side * (0.75 + random01(index * 3.7) * 0.75), 0.085, baseZ);
+      root.rotation.set(Math.PI / 2, random01(index * 2.2) * 0.42 - 0.21, side * (Math.PI / 2 + 0.35));
+      root.scale.set(1, 0.65 + random01(index * 4.1) * 0.9, 1);
+      this.scene.add(root);
+      this.registerForestItem(root, baseZ, root.position.x);
+    }
+
+    for (let index = 0; index < 30; index += 1) {
+      const baseZ = worldStartZ + random01(index * 17.9) * worldSpan;
+      const x = (random01(index * 4.3) - 0.5) * 2.4;
+      const puddle = new THREE.Mesh(puddleGeometry, puddleMaterial);
+      puddle.position.set(x, 0.062, baseZ);
+      puddle.scale.set(0.7 + random01(index * 2.4) * 1.35, 0.25 + random01(index * 6.2) * 0.52, 1);
+      puddle.rotation.set(-Math.PI / 2, 0, random01(index * 9.4) * Math.PI * 2);
+      this.scene.add(puddle);
+      this.registerForestItem(puddle, baseZ, x);
+    }
+
+    for (let index = 0; index < 48; index += 1) {
+      const baseZ = worldStartZ + random01(index * 10.77) * worldSpan;
+      const side = index % 2 === 0 ? -1 : 1;
+      const branch = new THREE.Mesh(branchGeometry, rootMaterial);
+      branch.position.set(side * (2.15 + random01(index * 5.25) * 1.25), 0.18, baseZ);
+      branch.scale.set(1, 0.75 + random01(index * 3.3) * 1.15, 1);
+      branch.rotation.set(Math.PI / 2, random01(index * 4.2) * 0.35, side * (0.75 + random01(index * 7.8) * 0.8));
+      this.scene.add(branch);
+      this.registerForestItem(branch, baseZ, branch.position.x);
     }
 
     for (let index = 0; index < 26; index += 1) {
@@ -817,6 +910,148 @@ function createCanopyCluster(material, scale) {
   }
 
   return group;
+}
+
+function createForestFloorTexture() {
+  return createNoiseTexture({
+    base: [28, 43, 30],
+    accent: [58, 70, 42],
+    speckles: [
+      [42, 74, 44],
+      [82, 61, 33],
+      [24, 35, 26],
+    ],
+    streaks: 20,
+    repeatX: 8,
+    repeatY: 8,
+  });
+}
+
+function createMudTexture() {
+  return createNoiseTexture({
+    base: [70, 49, 32],
+    accent: [112, 78, 47],
+    speckles: [
+      [41, 30, 22],
+      [91, 63, 38],
+      [24, 24, 20],
+    ],
+    streaks: 34,
+    repeatX: 4,
+    repeatY: 10,
+  });
+}
+
+function createBarkTexture() {
+  return createNoiseTexture({
+    base: [69, 47, 31],
+    accent: [117, 89, 58],
+    speckles: [
+      [38, 25, 16],
+      [91, 60, 35],
+      [145, 128, 91],
+    ],
+    vertical: true,
+    streaks: 42,
+    repeatX: 2,
+    repeatY: 5,
+  });
+}
+
+function createFoliageTexture(multiplier = 1) {
+  return createNoiseTexture({
+    base: [Math.round(35 * multiplier), Math.round(82 * multiplier), Math.round(57 * multiplier)],
+    accent: [Math.round(62 * multiplier), Math.round(122 * multiplier), Math.round(78 * multiplier)],
+    speckles: [
+      [Math.round(18 * multiplier), Math.round(48 * multiplier), Math.round(37 * multiplier)],
+      [Math.round(78 * multiplier), Math.round(118 * multiplier), Math.round(61 * multiplier)],
+      [Math.round(14 * multiplier), Math.round(30 * multiplier), Math.round(26 * multiplier)],
+    ],
+    streaks: 18,
+    repeatX: 3,
+    repeatY: 3,
+  });
+}
+
+function createRockTexture() {
+  return createNoiseTexture({
+    base: [73, 80, 77],
+    accent: [118, 126, 119],
+    speckles: [
+      [45, 49, 48],
+      [91, 98, 96],
+      [28, 31, 30],
+    ],
+    streaks: 22,
+    repeatX: 3,
+    repeatY: 3,
+  });
+}
+
+function createNoiseTexture({ base, accent, speckles, streaks, repeatX, repeatY, vertical = false }) {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d");
+  const image = context.createImageData(size, size);
+  const data = image.data;
+
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const index = (y * size + x) * 4;
+      const grain = random01(x * 12.17 + y * 37.31);
+      const broad = random01(Math.floor(x / 8) * 19.3 + Math.floor(y / 8) * 41.9);
+      const mix = Math.min(1, grain * 0.62 + broad * 0.38);
+      data[index] = Math.round(base[0] + (accent[0] - base[0]) * mix);
+      data[index + 1] = Math.round(base[1] + (accent[1] - base[1]) * mix);
+      data[index + 2] = Math.round(base[2] + (accent[2] - base[2]) * mix);
+      data[index + 3] = 255;
+    }
+  }
+
+  context.putImageData(image, 0, 0);
+
+  for (let index = 0; index < streaks; index += 1) {
+    const color = speckles[index % speckles.length];
+    context.strokeStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${0.26 + random01(index * 8.8) * 0.32})`;
+    context.lineWidth = 1 + random01(index * 3.2) * 4;
+    context.beginPath();
+    const startX = random01(index * 17.3) * size;
+    const startY = random01(index * 29.1) * size;
+    if (vertical) {
+      context.moveTo(startX, 0);
+      context.bezierCurveTo(startX - 12, size * 0.3, startX + 14, size * 0.7, startX - 6, size);
+    } else {
+      context.moveTo(startX, startY);
+      context.bezierCurveTo(
+        startX + 20,
+        startY + random01(index * 5.6) * 28 - 14,
+        startX + 56,
+        startY + random01(index * 6.7) * 34 - 17,
+        startX + 96,
+        startY + random01(index * 7.8) * 42 - 21
+      );
+    }
+    context.stroke();
+  }
+
+  for (let index = 0; index < 220; index += 1) {
+    const color = speckles[index % speckles.length];
+    context.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${0.18 + random01(index * 4.4) * 0.35})`;
+    const radius = 0.6 + random01(index * 5.5) * 2.1;
+    context.beginPath();
+    context.arc(random01(index * 6.6) * size, random01(index * 7.7) * size, radius, 0, Math.PI * 2);
+    context.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeatX, repeatY);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function random01(seed) {
