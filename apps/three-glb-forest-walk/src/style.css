@@ -1,0 +1,129 @@
+:root {
+  color: #edf5ed;
+  background: #07100d;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: #07100d;
+}
+
+button {
+  font: inherit;
+}
+
+#scene {
+  position: fixed;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #07100d;
+}
+
+.enter-button {
+  position: absolute;
+  left: 50%;
+  bottom: 84px;
+  z-index: 2;
+  width: 132px;
+  height: 42px;
+  padding: 0 16px;
+  transform: translateX(-50%);
+  border: 1px solid rgb(238 245 239 / 34%);
+  border-radius: 8px;
+  color: #f5fff4;
+  background: rgb(16 32 24 / 78%);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 34%);
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.enter-button:hover {
+  background: rgb(31 61 42 / 84%);
+}
+
+.enter-button:focus-visible,
+.mode-button:focus-visible {
+  outline: 2px solid #d8f6d2;
+  outline-offset: 3px;
+}
+
+.hud {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  width: min(250px, calc(100vw - 32px));
+  padding: 10px;
+  border: 1px solid rgb(236 246 237 / 22%);
+  border-radius: 8px;
+  color: #e8f3e8;
+  background: rgb(7 14 11 / 64%);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 30%);
+  backdrop-filter: blur(10px);
+}
+
+.status {
+  min-height: 18px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.mode-button {
+  height: 34px;
+  border: 1px solid rgb(236 246 237 / 22%);
+  border-radius: 8px;
+  color: #dce9dc;
+  background: rgb(18 35 27 / 70%);
+  cursor: pointer;
+}
+
+.mode-button[aria-pressed="true"] {
+  color: #102018;
+  background: #d7e9b6;
+}
+
+body[data-mode="night"] .mode-button[aria-pressed="true"] {
+  color: #f4f7ff;
+  background: #435f9e;
+}
+
+@media (max-width: 560px) {
+  .enter-button {
+    bottom: 108px;
+  }
+
+  .hud {
+    right: 50%;
+    transform: translateX(50%);
+  }
+}

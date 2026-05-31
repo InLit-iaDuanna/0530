@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Light Forest Walk</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene" aria-label="林间小路三维场景"></canvas>
+      <button id="enter-button" class="enter-button" type="button">进入林间</button>
+      <div class="hud">
+        <div id="asset-status" class="status">树木加载中</div>
+        <div class="mode-toggle" role="group" aria-label="昼夜模式">
+          <button id="day-button" class="mode-button" type="button" aria-pressed="true">白天</button>
+          <button id="night-button" class="mode-button" type="button" aria-pressed="false">夜晚</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
