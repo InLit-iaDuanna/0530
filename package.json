@@ -1,0 +1,18 @@
+{
+  "name": "cave-maze",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.cjs",
+    "start": "node server.cjs",
+    "cert": "node scripts/create-local-cert.mjs 192.168.31.24",
+    "https": "node scripts/serve-https.mjs",
+    "check": "node --check src/main.js && node --check src/sensors.js && node --check src/stepDetector.js && node --check scripts/serve-https.mjs && node --check scripts/create-local-cert.mjs && node --check server.cjs",
+    "build": "node scripts/build-static.cjs"
+  },
+  "dependencies": {
+    "three": "^0.165.0"
+  },
+  "devDependencies": {}
+}
