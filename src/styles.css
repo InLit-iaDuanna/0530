@@ -1,0 +1,170 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #090807;
+  color: #f5ead2;
+  font-family:
+    Inter, "Microsoft YaHei", "PingFang SC", system-ui, -apple-system,
+    BlinkMacSystemFont, sans-serif;
+}
+
+button {
+  border: 1px solid rgba(245, 234, 210, 0.42);
+  background: rgba(42, 35, 24, 0.78);
+  color: #f5ead2;
+  cursor: pointer;
+  font: inherit;
+}
+
+button:hover,
+button:focus-visible {
+  background: rgba(81, 69, 45, 0.9);
+  outline: 2px solid rgba(239, 178, 91, 0.72);
+  outline-offset: 3px;
+}
+
+#scene {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.hud {
+  position: fixed;
+  top: 18px;
+  left: 18px;
+  z-index: 5;
+  display: flex;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.meter {
+  min-width: 86px;
+  padding: 8px 10px;
+  border: 1px solid rgba(245, 234, 210, 0.2);
+  background: rgba(13, 11, 9, 0.52);
+  backdrop-filter: blur(10px);
+}
+
+.meter span,
+.title-block p {
+  display: block;
+  margin: 0 0 3px;
+  color: rgba(245, 234, 210, 0.68);
+  font-size: 12px;
+}
+
+.meter strong {
+  display: block;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+#map {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 5;
+  width: 148px;
+  height: 148px;
+  border: 1px solid rgba(245, 234, 210, 0.2);
+  background: rgba(13, 11, 9, 0.44);
+  pointer-events: none;
+}
+
+.start-screen,
+.calibration-screen,
+.win-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 48%, rgba(224, 151, 68, 0.18), transparent 28%),
+    linear-gradient(rgba(8, 8, 7, 0.64), rgba(8, 8, 7, 0.84));
+}
+
+.title-block {
+  width: min(520px, 92vw);
+  text-align: center;
+}
+
+.title-block p {
+  max-width: 46rem;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.title-block h1,
+.title-block h2 {
+  margin: 0 0 22px;
+  color: #fff6df;
+  font-size: clamp(40px, 8vw, 82px);
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 0.95;
+  text-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+}
+
+.title-block h2 {
+  font-size: clamp(32px, 6vw, 64px);
+}
+
+.title-block button {
+  min-width: 136px;
+  min-height: 46px;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+.hidden {
+  display: none;
+}
+
+@media (pointer: fine) {
+  .mobile-meter {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  #map {
+    width: 116px;
+    height: 116px;
+  }
+
+  .hud {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .meter {
+    min-width: 74px;
+    padding: 7px 8px;
+  }
+
+  .meter span {
+    font-size: 11px;
+  }
+
+  .meter strong {
+    font-size: 15px;
+  }
+}

@@ -23,6 +23,9 @@ __pycache__/
 dist/
 build/
 coverage/
+certs/
+public/vendor/
+public/cave-maze-root-ca.cer
 
 # IDE
 .idea/

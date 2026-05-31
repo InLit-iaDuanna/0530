@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>山洞迷宫</title>
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <div class="hud">
+        <div class="meter">
+          <span>出口</span>
+          <strong id="distance">-- m</strong>
+        </div>
+        <div class="meter">
+          <span>方向</span>
+          <strong id="bearing">--</strong>
+        </div>
+        <div class="meter mobile-meter">
+          <span>步频</span>
+          <strong id="cadence">0 spm</strong>
+        </div>
+        <div class="meter mobile-meter">
+          <span>速度</span>
+          <strong id="speed">0.0</strong>
+        </div>
+        <div class="meter mobile-meter">
+          <span>传感器</span>
+          <strong id="sensorStatus">等待</strong>
+        </div>
+      </div>
+
+      <canvas id="map" aria-hidden="true"></canvas>
+
+      <div class="start-screen" id="startScreen">
+        <div class="title-block">
+          <p>石墙深处</p>
+          <h1>山洞迷宫</h1>
+          <p id="startHint">手机端需要 HTTPS，并允许运动与方向传感器。</p>
+          <button id="startButton" type="button">允许传感器并校准方向</button>
+        </div>
+      </div>
+
+      <div class="calibration-screen hidden" id="calibrationScreen">
+        <div class="title-block">
+          <p>方向检测</p>
+          <h2>面向前方</h2>
+          <p>站在起点，手机平视并面向你要前进的方向。确认后，原地踏步前进，转动手机改变方向。</p>
+          <p id="calibrationStatus">等待方向传感器数据...</p>
+          <button id="confirmCalibrationButton" type="button">确认当前方向</button>
+        </div>
+      </div>
+
+      <div class="win-screen hidden" id="winScreen">
+        <div class="title-block">
+          <p>出口已找到</p>
+          <h2>你走出了山洞迷宫</h2>
+          <button id="restartButton" type="button">再走一次</button>
+        </div>
+      </div>
+    </div>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/vendor/three/build/three.module.js",
+          "three/examples/jsm/": "/vendor/three/examples/jsm/"
+        }
+      }
+    </script>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
